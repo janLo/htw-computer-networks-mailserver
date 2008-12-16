@@ -133,8 +133,6 @@ int mbox_init_app(){
  * \return A pointer to the new mailbox object.
  */
 mailbox_t * mbox_init(char* user){
-    char querry_buff[1024] ;
-    char *zErrMsg = 0;
     int i = 0;
 
     mailbox_t * new_mbox = malloc(sizeof(mailbox_t));
