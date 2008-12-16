@@ -241,23 +241,61 @@ int config_user_locked(const char* name){
      return user->user_mboxlock;
 }
 
+//! Set or reset the lock flag
+/*! 
+ * This sets or resets the mailbox lock flag for a given user. If the user dored
+ * not exist in the list, CONFIG_ERROR will be returned.
+ * The User will be searched with the helper config_get_user(), therfore the
+ * search is case insensitive and the provided buffer will not be modified.
+ * \param name The name of the searched user.
+ * \param lock Tells if the mailbox should be locked or unlocked.
+ * \return CONFIG_ERROR if the user does not exist localy, CONFIG_OK else.
+ * \sa config_get_user()
+ */ 
 static inline int config_set_user_mbox_lock(const char* name, int lock){
     user_t * user;
     if ( NULL == (user = config_get_user(name)) ) {
         return CONFIG_ERROR;
     }
     user->user_mboxlock = lock;
-    return 0;
+    return CONFIG_OK;
 }
 
+//! Set the lock flag
+/*! 
+ * This wrapps config_set_user_mbox_lock() to set the mailbox lock flag.
+ * \param name The username to reset the lock flag
+ * \return CONFIG_ERROR if the user does not exist localy, CONFIG_OK else.
+ * \sa config_set_user_mbox_lock()
+ */
 int config_lock_mbox(const char * name){
     return config_set_user_mbox_lock(name, 1);
 }
 
+//! Reset the lock flag
+/*! 
+ * This wrapps config_set_user_mbox_lock() to reset the mailbox lock flag.
+ * \param name The username to reset the lock flag
+ * \return CONFIG_ERROR if the user does not exist localy, CONFIG_OK else.
+ * \sa config_set_user_mbox_lock()
+ */
 int config_unlock_mbox(const char * name){
     return config_set_user_mbox_lock(name, 0);
 }
 
+//! Verify a user password
+/*! 
+ * This verifys a user password given in plain text.
+ * The user will be searched with config_get_user() in the userlist, so the
+ * search will be case insensitive and the provided buffer will not be modified.
+ * 1 will be returned the passwords matches. If not, 0 will be returned and if
+ * the user does not exist, CONFIG_ERROR will be returned.
+ * \param name   The name of the user.
+ * \param passwd The password to verify.
+ * \return 0 if the password dont match, 1 if it matches and CONFIG_ERROR if the
+ *         user does not exist.
+ * \sa config_set_user_mbox_lock()
+ */
 int config_verify_user_passwd(const char * name, const char * passwd){
     user_t * user;
     if ( NULL == (user = config_get_user(name)) ) {
