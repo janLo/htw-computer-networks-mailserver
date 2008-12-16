@@ -159,6 +159,7 @@ int config_parse_csv(const char* filename){
         strcpy(new_user->user_name, username);
         strcpy(new_user->user_password, password);
 
+        /* Build the list */
         if (NULL == last_listentry) {
             userlist_head = new_listentry;
         } else {
@@ -173,6 +174,14 @@ int config_parse_csv(const char* filename){
 
 }
 
+//! Get user by name
+/*! 
+ * This is a helper to get a User object by its username. The comparisn is
+ * caseinsensitive. The name parameter will noot be modified. If there is no
+ * user with the given name, NULL will be returned.
+ * \param name The name of the searched user.
+ * \return The user object or NULL if none found.
+ */
 static inline user_t * config_get_user(const char* name){
     userlist_t * tmp = userlist_head;
     size_t len = strlen(name) + 1;
@@ -195,6 +204,16 @@ static inline user_t * config_get_user(const char* name){
     return NULL;
 }
 
+//! Test if a user is locally available
+/*!
+ * This test if a user exists in the local user table. If yes, 1 is returned, 
+ * 0 if not.
+ * The User will be searched with the helper config_get_user(), therfore the
+ * search is case insensitive and the provided buffer will not be modified.
+ * \param name The name of the searched user.
+ * \return 0 if the user does not exist, 1 else.
+ * \sa config_get_user()
+ */
 int config_has_user(const char* name){
     if ( NULL == config_get_user(name) ) {
         return 0;
@@ -202,6 +221,18 @@ int config_has_user(const char* name){
     return 1;
 }
 
+//! Chech the mailbox lock
+/*!
+ * This checks if the mailbox for a given user is locked. If yes 1 is returned,
+ * 0 if not. If the User does not exist in the local table CONFIG_ERROR will be
+ * returned.
+ * The User will be searched with the helper config_get_user(), therfore the
+ * search is case insensitive and the provided buffer will not be modified.
+ * \param name The name of the searched user.
+ * \return 0 if the users mailbox is not locked, 1 if its locked and
+ *         CONFIG_ERROR if the user does not exist localy.
+ * \sa config_get_user()
+ */ 
 int config_user_locked(const char* name){
      user_t * user;
      if ( NULL == (user = config_get_user(name)) ) {
@@ -238,7 +269,9 @@ int config_verify_user_passwd(const char * name, const char * passwd){
     return 0;
 }
 
+int config_init(){
 
+}
 
 int main(){
 
