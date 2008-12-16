@@ -10,23 +10,93 @@
 
 typedef struct user user_t;
 
+//! Represent a user 
+/*! 
+ * This represent a User with username, password and a flag to hold the state
+ * of the mailbox.
+ */
 struct user {
    char * user_name;
    char * user_password;
    int  user_mboxlock;
 };
 
+
 typedef struct userlist userlist_t;
 
+//! List of users
+/*!
+ * This is needed to build a linked lst of all users.
+ */
 struct userlist {
     user_t       userlist_user;
     userlist_t * userlist_next;
 };
 
 
-userlist_t * userlist_head = NULL;
+userlist_t * userlist_head = NULL; //! The head of the userlist
+
+int smtp_port;                  //! The SMTP Port
+int pop_port;                   //! The POP3 Port
+int pops_port;                  //! The PIP3S Port
+
+char * hostname= NULL;          //! The hostname of the server
+
+char * relayhost= NULL;         //! The ost where all non-local mails should be relayed to.
 
 
+
+
+//! Get the SMTP port
+/*! 
+ * \return The SMTP port.
+ */
+inline int config_get_smtp_port(){
+    return smtp_port;
+}
+
+//! Get the POP3 port
+/*! 
+ * \return The POP3port.
+ */
+inline int config_get_pop_port(){
+    return pop_port;
+}
+
+//! Get the POP3S port
+/*! 
+ * \return The POP3S port.
+ */
+inline int config_get_pops_port(){
+    return pops_port;
+}
+
+//! Get the Hostname
+/*! 
+ * \return The Hostname.
+ */
+const char* config_get_hostname(){
+    return hostname;
+}
+
+//! Get the Relayhost
+/*! 
+ * \return The Relayhost.
+ */
+const char* config_get_relayhost(){
+    return relayhost;
+}
+
+//! Converts a String to lowercase
+/*!
+ * Convers a char sequence to lower case for better matching with strcmp(). The
+ * provided sequence will be modified, no copy will be created! 
+ * The parameter len is optional to prevent the function from do a strlen() at
+ * first to determine the length of the string. If it is set to 0, a strlen will
+ * count the length of the string at first.
+ * \param str The String to convert.
+ * \param len The length of the string _without_ null terminator.
+ */
 inline void config_to_lower(char * str, size_t len){
     size_t i;
 
