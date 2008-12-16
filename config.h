@@ -24,3 +24,5 @@ int config_lock_mbox(const char * name);
 int config_unlock_mbox(const char * name);
 
 int config_verify_user_passwd(const char * name, const char * passwd);
+
+int config_init(int argc, char * argv[]);

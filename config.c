@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>
+#include <netdb.h>
+#include <unistd.h>
 
 #include "config.h"
 
@@ -118,6 +120,7 @@ int config_parse_csv(const char* filename){
     FILE * file ;
     char * username;
     char * password;
+    size_t user_len, passwd_len;
     user_t * new_user;
     userlist_t * new_listentry = NULL;
     userlist_t * last_listentry = NULL;
@@ -141,7 +144,6 @@ int config_parse_csv(const char* filename){
         /* do some string magic */
         if ( ! (username = strtok(line_buffer,"\t"))) continue;
         if ( ! (password = strtok(NULL,       "\t"))) continue;
-        config_to_lower(password, 0);
         //printf("%s: %s\n", username,password);
 
         /* create a new user */
@@ -152,12 +154,17 @@ int config_parse_csv(const char* filename){
         new_user->user_mboxlock = 0;
 
         /* fetching space for the values */
-        new_user->user_name = malloc(sizeof(char) * (strlen(username)+1));
-        new_user->user_password = malloc(sizeof(char) * (strlen(password)+1));
+        user_len = strlen(username)+1;
+        passwd_len = strlen(password)+1;
+
+        new_user->user_name = malloc(sizeof(char) * user_len);
+        new_user->user_password = malloc(sizeof(char) * passwd_len);
+
+        config_to_lower(username, user_len);
 
         /* assign the values */
-        strcpy(new_user->user_name, username);
-        strcpy(new_user->user_password, password);
+        memcpy(new_user->user_name, username, user_len);
+        memcpy(new_user->user_password, password, passwd_len);
 
         /* Build the list */
         if (NULL == last_listentry) {
@@ -307,13 +314,136 @@ int config_verify_user_passwd(const char * name, const char * passwd){
     return 0;
 }
 
-int config_init(){
 
+//! Parse a port option
+/*!
+ * Parses a single host value and ensure that its a valid value. If ist not
+ * valid, CONFIG_ERROR is given back.
+ * \param buf The port a char sequence, null terminated.
+ * \return the port number as int or CONFIG_ERROR (see above).
+ */
+int config_parse_single_port(const char *buf){
+    int ret = 0;
+    int len = strlen(buf);
+    int i;
+    
+    for(i = 0; i < len; i++){
+        if(!isdigit(buf[i])){
+            return CONFIG_ERROR;
+        }
+    }
+
+    ret = atoi(buf);
+
+    if (ret > 65535 || ret < 1) {
+        return CONFIG_ERROR;
+    }
+    return ret;
 }
 
-int main(){
+//! Parse a port tuple
+/*!
+ * Parse tuple of 3 port values: first the SMTP port, then the POP3 port and at
+ * last the POP3S Port. The ports are converted to int and assigned to the
+ * global config.
+ * If the format is invalid or the values are no valid port numbers,
+ * CONFIG_ERROR is given back.
+ * \param buf The tuple as char sequence, seperated by ',', nullterminated.
+ * \return CONFIG_ERROR on failture, CONFIG_OK else.
+ */
+int config_parse_ports(const char* buf){
+    size_t len = strlen(buf) + 1;
+    char * tmp_buff = malloc(sizeof(char) * len);
+    char * smtp;
+    char * pop3;
+    char * pop3s;
 
-    config_parse_csv("user.csv");
+    memcpy(tmp_buff, buf, len);
+
+    if ( (NULL != (smtp = strtok(tmp_buff,","))) && 
+            (CONFIG_ERROR != (smtp_port = config_parse_single_port(smtp))) ) {
+        free(tmp_buff);
+        return CONFIG_ERROR;
+    }
+    if ( NULL != (pop3 = strtok(NULL, ","))  && 
+            (CONFIG_ERROR != (pop_port = config_parse_single_port(smtp))) ) {
+        free(tmp_buff);
+        return CONFIG_ERROR;
+    }
+    if ( NULL != (pop3s = strtok(NULL, ",")) && 
+            (CONFIG_ERROR != (pops_port = config_parse_single_port(smtp))) ) {
+        free(tmp_buff);
+        return CONFIG_ERROR;
+    }
+
+    free(tmp_buff);
+    return CONFIG_OK;
+}
+
+//! Parse a host option
+/*!
+ * Parses a hostname. It does a gethostbyname() lookup to ensure that the given
+ * parameter is a valid hostname.
+ * On success the hostname will be returned in a fresh new buffer. Else NULL
+ * will be returned.
+ * \param buf The buffer tith the hostname.
+ * \return A new buffer with the hostname or NULL on failture. 
+ */
+char *config_parse_host(const char *buf){
+    char * new_host;
+    size_t len; 
+
+    if(gethostbyname(buf) == NULL) {
+        return NULL;
+    }
+
+    len = strlen(buf) + 1;
+    new_host = malloc(sizeof(char) * len);
+    memcpy(new_host, buf, len);
+
+    return new_host;
+}
+
+
+//! Init the config
+/*! 
+ * This initializes the config. It parses the commandline parameters and fills
+ * the config variables.
+ * This should called only once at application start.
+ * On success CONFIG_OK will be returned, CONFIG_ERROR else.
+ * \param argc The count of arguments given on the commandline.
+ * \param argv The rguments from the commandline as array of char sequences.
+ * \return CONFIG_OK on success, CONFIG_ERROR else.
+ */
+int config_init(int argc, char * argv[]){
+    char c;
+    while ((c = getopt (argc, argv, "p:u:H:R:")) != -1){
+        switch (c) {
+            case 'p':
+                if (CONFIG_ERROR == config_parse_ports(optarg)) 
+                    return CONFIG_ERROR;
+                break;
+             case 'H':
+                if (NULL == (hostname = config_parse_host(optarg)))
+                    return CONFIG_ERROR;
+                break;
+             case 'R':
+                if (NULL == (relayhost = config_parse_host(optarg)))
+                    return CONFIG_ERROR;
+                break;
+             case 'u':
+                if (CONFIG_ERROR == config_parse_csv(optarg))
+                    return CONFIG_ERROR;
+                break;
+        }
+    }
+    return CONFIG_OK;
+}
+
+int main(int argc, char * argv[]){
+
+//    config_parse_csv("user.csv");
+    config_init(argc, argv);
     if(config_has_user("Jan")){
      printf("foo\n");
     }
