@@ -1,10 +1,8 @@
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
 
-#define CONFIG_ERROR -1
-#define CONFIG_OK     0
+#include "config.h"
 
 #define BUF_SIZE_HUGE 4096
 
