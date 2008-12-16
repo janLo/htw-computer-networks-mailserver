@@ -1,3 +1,12 @@
+/* config.c
+ *
+ * The configuration module for the "Beleg Rechnernetze/Kommunikationssysteme".
+ *
+ * author: Jan Losinski
+ * date: 16.12.08
+ */
+
+
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>
@@ -440,6 +449,7 @@ int config_init(int argc, char * argv[]){
     return CONFIG_OK;
 }
 
+// Test!
 int main(int argc, char * argv[]){
 
 //    config_parse_csv("user.csv");
