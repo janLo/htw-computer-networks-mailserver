@@ -119,6 +119,7 @@ int mbox_init_app(){
         return MAILBOX_ERROR;
     }
 
+    printf("mailbox init ok\n");
     return MAILBOX_OK;
 }
 

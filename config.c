@@ -45,15 +45,15 @@ struct userlist {
 
 userlist_t * userlist_head = NULL; //! The head of the userlist
 
-int smtp_port;                  //! The SMTP Port
-int pop_port;                   //! The POP3 Port
-int pops_port;                  //! The PIP3S Port
+int smtp_port = 0;              //! The SMTP Port
+int pop_port  = 0;              //! The POP3 Port
+int pops_port = 0;              //! The PIP3S Port
 
-char * hostname= NULL;          //! The hostname of the server
+char * hostname  = NULL;        //! The hostname of the server
 
-char * relayhost= NULL;         //! The ost where all non-local mails should be relayed to.
+char * relayhost = NULL;        //! The ost where all non-local mails should be relayed to.
 
-
+char * dbfile    = "mailboxes.sqlite";  //! The filename of the mailbox database file.
 
 
 //! Get the SMTP port
@@ -61,7 +61,7 @@ char * relayhost= NULL;         //! The ost where all non-local mails should be 
  * \return The SMTP port.
  */
 inline int config_get_smtp_port(){
-    return smtp_port;
+    return (smtp_port ? smtp_port : 25);
 }
 
 //! Get the POP3 port
@@ -69,7 +69,7 @@ inline int config_get_smtp_port(){
  * \return The POP3port.
  */
 inline int config_get_pop_port(){
-    return pop_port;
+    return (pop_port ? pop_port : 465);
 }
 
 //! Get the POP3S port
@@ -77,7 +77,7 @@ inline int config_get_pop_port(){
  * \return The POP3S port.
  */
 inline int config_get_pops_port(){
-    return pops_port;
+    return (pops_port ? pops_port : 993);
 }
 
 //! Get the Hostname
@@ -94,6 +94,14 @@ const char* config_get_hostname(){
  */
 const char* config_get_relayhost(){
     return relayhost;
+}
+
+//! Get the Dbfilename
+/*! 
+ * \return The Relayhost.
+ */
+const char* config_get_dbfile(){
+    return dbfile;
 }
 
 //! Converts a String to lowercase
@@ -426,7 +434,10 @@ char *config_parse_host(const char *buf){
  */
 int config_init(int argc, char * argv[]){
     char c;
-    while ((c = getopt (argc, argv, "p:u:H:R:")) != -1){
+    size_t len;
+    int init_ok = 0;
+
+    while ((c = getopt (argc, argv, "d:p:u:H:R:hV")) != -1){
         switch (c) {
             case 'p':
                 if (CONFIG_ERROR == config_parse_ports(optarg)) 
@@ -443,16 +454,22 @@ int config_init(int argc, char * argv[]){
              case 'u':
                 if (CONFIG_ERROR == config_parse_csv(optarg))
                     return CONFIG_ERROR;
+                init_ok = 1;
+                break;
+             case 'd':
+                len = strlen(optarg) + 1;
+                dbfile = malloc(sizeof(char) * len);
+                memcpy(dbfile, optarg, len);
                 break;
         }
     }
-    return CONFIG_OK;
+    return (init_ok ? CONFIG_OK : CONFIG_ERROR);
 }
 
 // Test!
+/*
 int main(int argc, char * argv[]){
 
-//    config_parse_csv("user.csv");
     config_init(argc, argv);
     if(config_has_user("Jan")){
      printf("foo\n");
@@ -463,3 +480,4 @@ int main(int argc, char * argv[]){
     }
     return 0;
 }
+*/
