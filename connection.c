@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netdb.h>
@@ -16,6 +17,7 @@ typedef struct mysocket {
     int    socket_fd;
     void * socket_data;
     int (* socket_handler)(int socket, void * data);
+    int (* socket_data_deleter)(void * data);
 } mysocket_t;
 
 //! Socket lisz
@@ -78,7 +80,8 @@ int conn_setup_listen(const char * port) {
 }
 
 //! Helper for socket list elements
-static inline mysocket_list_t * conn_build_socket_elem(int fd, void * data, int (* handler)(int, void *)){
+static inline mysocket_list_t * conn_build_socket_elem(int fd, void * data, 
+	int (* handler)(int, void *), int (* data_deleter)(void *)){
     mysocket_list_t * elem;
 
     elem = malloc(sizeof(mysocket_list_t));
@@ -86,12 +89,45 @@ static inline mysocket_list_t * conn_build_socket_elem(int fd, void * data, int 
     elem->list_next = NULL;
     elem->list_socket.socket_data = data;
     elem->list_socket.socket_handler = handler;
+    elem->list_socket.socket_data_deleter = data_deleter;
     
     if ( -1 == (elem->list_socket.socket_fd = fd) ) {
         free(elem);
         return NULL;
     }
     return elem;
+}
+
+static inline int conn_delete_socket_elem(int fd){
+    mysocket_list_t * elem;
+    mysocket_list_t * prev;
+    mysocket_list_t * next;
+
+    elem = socketlist_head;
+    prev = NULL;
+    next = NULL;
+
+    while (NULL != elem){
+	if (fd == elem->list_socket.socket_fd){
+	    next = elem->list_next;
+	    if(NULL != prev){
+	        prev->list_next = next;
+	    } else {
+		socketlist_head = next;
+	    }
+	    if (NULL != elem->list_socket.socket_data_deleter) {
+		(elem->list_socket.socket_data_deleter)(elem->list_socket.socket_data);
+	    }
+	    close(fd);
+	    free(elem);
+	    return CONN_OK;
+	}
+        prev = elem;
+	elem = prev->list_next;
+    }
+
+    printf("close socket");
+    return CONN_FAIL;
 }
 
 //! Accept a smtp connection
@@ -116,21 +152,21 @@ int conn_init(){
 
     /* Setup SMTP */
     fd = conn_setup_listen(config_get_smtp_port());
-    elem = conn_build_socket_elem(fd, NULL, accept_smtp_client);
+    elem = conn_build_socket_elem(fd, NULL, accept_smtp_client, NULL);
     if (NULL == elem) 
         return CONN_FAIL;
     socketlist_head = elem;
 
     /* Setup POP3 */
     fd = conn_setup_listen(config_get_pop_port());
-    elem->list_next = conn_build_socket_elem(fd, NULL, accept_pop3_client);
+    elem->list_next = conn_build_socket_elem(fd, NULL, accept_pop3_client, NULL);
     elem = elem->list_next;
     if (NULL == elem) 
         return CONN_FAIL;
 
     /* Setup POP3S */
     fd = conn_setup_listen(config_get_pops_port());
-    elem->list_next = conn_build_socket_elem(fd, NULL, accept_pop3s_client);
+    elem->list_next = conn_build_socket_elem(fd, NULL, accept_pop3s_client, NULL);
     elem = elem->list_next;
     if (NULL == elem) 
         return CONN_FAIL;
@@ -140,5 +176,17 @@ int conn_init(){
 
 //! Do the connection wait loop
 int conn_wait_loop(){
+    return 0;
+}
+
+int conn_close() {
+    mysocket_list_t * elem = socketlist_head;
+    int fd;
+
+    while (elem != NULL){
+	fd = elem->list_socket.socket_fd;
+	elem = elem->list_next;
+        conn_delete_socket_elem(fd);
+    }
     return 0;
 }

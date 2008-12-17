@@ -4,3 +4,4 @@
 
 
 int conn_init();
+int conn_close();
