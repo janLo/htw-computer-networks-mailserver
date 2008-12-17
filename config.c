@@ -45,9 +45,9 @@ struct userlist {
 
 userlist_t * userlist_head = NULL; //! The head of the userlist
 
-int smtp_port = 0;              //! The SMTP Port
-int pop_port  = 0;              //! The POP3 Port
-int pops_port = 0;              //! The PIP3S Port
+char * smtp_port = "25";        //! The SMTP Port
+char * pop_port  = "465";       //! The POP3 Port
+char * pops_port = "993";       //! The PIP3S Port
 
 char * hostname  = NULL;        //! The hostname of the server
 
@@ -60,24 +60,24 @@ char * dbfile    = "mailboxes.sqlite";  //! The filename of the mailbox database
 /*! 
  * \return The SMTP port.
  */
-inline int config_get_smtp_port(){
-    return (smtp_port ? smtp_port : 25);
+inline char * config_get_smtp_port(){
+    return smtp_port;
 }
 
 //! Get the POP3 port
 /*! 
  * \return The POP3port.
  */
-inline int config_get_pop_port(){
-    return (pop_port ? pop_port : 465);
+inline char * config_get_pop_port(){
+    return pop_port;
 }
 
 //! Get the POP3S port
 /*! 
  * \return The POP3S port.
  */
-inline int config_get_pops_port(){
-    return (pops_port ? pops_port : 993);
+inline char * config_get_pops_port(){
+    return pops_port;
 }
 
 //! Get the Hostname
@@ -339,22 +339,27 @@ int config_verify_user_passwd(const char * name, const char * passwd){
  * \param buf The port a char sequence, null terminated.
  * \return the port number as int or CONFIG_ERROR (see above).
  */
-int config_parse_single_port(const char *buf){
-    int ret = 0;
-    int len = strlen(buf);
+char * config_parse_single_port(const char *buf){
+    int test = 0;
+    int len = strlen(buf) + 1;
+    char * ret;
     int i;
     
-    for(i = 0; i < len; i++){
+    for(i = 0; i < (len - 1); i++){
         if(!isdigit(buf[i])){
-            return CONFIG_ERROR;
+            return NULL;
         }
     }
 
-    ret = atoi(buf);
+    test = atoi(buf);
 
-    if (ret > 65535 || ret < 1) {
-        return CONFIG_ERROR;
+    if (test > 65535 || test < 1) {
+        return NULL;
     }
+
+    ret = malloc(sizeof(char)*len);
+    memcpy(ret, buf, len);
+    
     return ret;
 }
 
@@ -378,17 +383,17 @@ int config_parse_ports(const char* buf){
     memcpy(tmp_buff, buf, len);
 
     if ( (NULL != (smtp = strtok(tmp_buff,","))) && 
-            (CONFIG_ERROR != (smtp_port = config_parse_single_port(smtp))) ) {
+            (NULL != (smtp_port = config_parse_single_port(smtp))) ) {
         free(tmp_buff);
         return CONFIG_ERROR;
     }
     if ( NULL != (pop3 = strtok(NULL, ","))  && 
-            (CONFIG_ERROR != (pop_port = config_parse_single_port(smtp))) ) {
+            (NULL != (pop_port = config_parse_single_port(smtp))) ) {
         free(tmp_buff);
         return CONFIG_ERROR;
     }
     if ( NULL != (pop3s = strtok(NULL, ",")) && 
-            (CONFIG_ERROR != (pops_port = config_parse_single_port(smtp))) ) {
+            (NULL != (pops_port = config_parse_single_port(smtp))) ) {
         free(tmp_buff);
         return CONFIG_ERROR;
     }

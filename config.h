@@ -12,11 +12,11 @@
 #define CONFIG_ERROR -1
 #define CONFIG_OK     0
 
-inline int config_get_smtp_port();
+inline char * config_get_smtp_port();
 
-inline int config_get_pop_port();
+inline char * config_get_pop_port();
 
-inline int config_get_pops_port();
+inline char * config_get_pops_port();
 
 const char* config_get_hostname();
 

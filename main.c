@@ -5,6 +5,7 @@
 
 #include "config.h"
 #include "mailbox.h"
+#include "connection.h"
 
 #define VERSION  "0.1 PRE ALPHA"
 #define REVISION "r10"
@@ -93,5 +94,7 @@ int main(int argc, char* argv[]) {
     config_init(argc, argv);
     mbox_init_app(config_get_dbfile()); 
     
+    conn_init();
+
     return 0;
 }
