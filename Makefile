@@ -1,7 +1,7 @@
 CFLAGS = -Wall -g
 LDFLAGS = -lsqlite3
 
-OBJS = mailbox.o main.o config.o connection.o fail.o
+OBJS = mailbox.o main.o config.o connection.o fail.o smtp.o
 BIN  = mailtool
 
 $(BIN): $(OBJS)

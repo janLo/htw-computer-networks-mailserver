@@ -10,6 +10,7 @@
 #include "fail.h"
 #include "connection.h"
 #include "config.h"
+#include "smtp.h"
 
 #define BUF_SIZE 4096 
 
@@ -189,13 +190,19 @@ static inline readbuf_t * conn_read_normal_buff(int socket){
 //! Read some smtp data
 int conn_read_smtp(int socket, void *data){
     readbuf_t * buf = conn_read_normal_buff(socket);
+    int status;
 
     if (0 < buf->readbuf_len){
-        /* TODO: process smtp data */
-        printf("%s\n", buf->readbuf_data);
+
+        printf("process smtp: %s\n", buf->readbuf_data);
+        status = smtp_process_input(buf->readbuf_data, buf->readbuf_len, data);
+
+        if (SMTP_QUIT == status) {
+            conn_delete_socket_elem(socket);
+        }
+
         free(buf->readbuf_data);
     } else {
-        /* TODO: Close session and connection */
         printf("%i\n", buf->readbuf_len);
         conn_delete_socket_elem(socket);
     }
@@ -205,11 +212,13 @@ int conn_read_smtp(int socket, void *data){
 
 //! Read some pop3 data
 int conn_read_pop3(int socket, void *data){
+    /* TODO implement! */
     return 0;
 }
 
 //! Read some pop3s data
 int conn_read_pop3s(int socket, void *data){
+    /* TODO implement! */
     return 0;
 }
 
@@ -219,29 +228,36 @@ int conn_accept_smtp_client(int socket, void *data){
     struct sockaddr sa;
     size_t len = sizeof(sa);
     mysocket_list_t * elem;
-    
+    smtp_session_t * session;
+
     printf("smtp\n");
     if ( -1 == (new = accept(socket, &sa, &len)) ) {
         return CONN_FAIL;
     }
 
-    elem = conn_build_socket_elem(new, NULL, conn_read_smtp, NULL);
+    if( NULL == (session = smtp_create_session()) ) {
+        return CONN_FAIL;
+    }
+
+    elem = conn_build_socket_elem(new, session, conn_read_smtp, 
+            (int (*)(void *))smtp_destroy_session);
     if ( CONN_FAIL == conn_append_socket_elem(elem) ) {
         return CONN_FAIL;
     }
-    /* TODO: create smtp session */
 
     return CONN_OK;
 }
 
 //! Accept a pop3 connection
 int conn_accept_pop3_client(int socket, void *data){
+    /* TODO implement! */
     printf("pop3\n");
     return 0;
 }
 
 //! Accept a Pop3S connection
 int conn_accept_pop3s_client(int socket, void *data){
+    /* TODO implement! */
     printf("pop3s\n");
     return 0;
 }
@@ -304,6 +320,7 @@ int conn_wait_loop(){
             if (FD_ISSET(fd, &rfds)) {
                 printf("fd: %i\n", fd);
                 (elem->list_socket.socket_handler)(fd, elem->list_socket.socket_data);
+                i++;
             }
             elem = elem->list_next;
         }
