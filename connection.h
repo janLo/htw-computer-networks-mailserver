@@ -5,3 +5,4 @@
 
 int conn_init();
 int conn_close();
+int conn_wait_loop();

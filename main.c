@@ -95,6 +95,7 @@ int main(int argc, char* argv[]) {
     mbox_init_app(config_get_dbfile()); 
     
     conn_init();
+    conn_wait_loop();
     conn_close();
 
     mbox_close_app();
