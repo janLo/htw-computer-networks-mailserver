@@ -6,3 +6,4 @@
 int conn_init();
 int conn_close();
 int conn_wait_loop();
+ssize_t conn_writeback(int fd, char * buf, ssize_t len) ;

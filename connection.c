@@ -235,13 +235,21 @@ int conn_accept_smtp_client(int socket, void *data){
         return CONN_FAIL;
     }
 
-    if( NULL == (session = smtp_create_session()) ) {
+    if( NULL == (session = smtp_create_session(new)) ) {
+        close(new);
         return CONN_FAIL;
     }
 
     elem = conn_build_socket_elem(new, session, conn_read_smtp, 
             (int (*)(void *))smtp_destroy_session);
+    if (NULL == elem) {
+        smtp_destroy_session(session);
+        close(new);
+    }
     if ( CONN_FAIL == conn_append_socket_elem(elem) ) {
+        smtp_destroy_session(session);
+        free(elem);
+        close(new);
         return CONN_FAIL;
     }
 
@@ -340,4 +348,8 @@ int conn_close() {
         conn_delete_socket_elem(fd);
     }
     return CONN_OK;
+}
+
+ssize_t conn_writeback(int fd, char * buf, ssize_t len) {
+    return write(fd, buf, len);
 }
