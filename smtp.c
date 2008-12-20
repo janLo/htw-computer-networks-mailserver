@@ -11,6 +11,7 @@
 #include <openssl/buffer.h>
 
 #include "smtp.h"
+#include "forward.h"
 #include "connection.h"
 #include "config.h"
 #include "fail.h"
@@ -504,7 +505,7 @@ int smtp_process_input(char * msg, int msglen, smtp_session_t * session) {
                             || smtp_write_client_msg(session->session_writeback_fd, 250, SMTP_MSG_EHLLO_EXT1, session->session_host) == SMTP_FAIL ) {
                         printf("Write Failed, Abort Session\n");
                         ERROR_SYS("Wrie to Client");
-                        return SMTP_QUIT;
+                        return CONN_QUIT;
                     }
                 }
             } else {
@@ -514,7 +515,7 @@ int smtp_process_input(char * msg, int msglen, smtp_session_t * session) {
                     if( smtp_write_client_msg(session->session_writeback_fd, 250, SMTP_MSG_HELLO, session->session_host) == SMTP_FAIL){
                         printf("Write Failed, Abort Session\n");
                         ERROR_SYS("Wrie to Client");
-                        return SMTP_QUIT;
+                        return CONN_QUIT;
                     }
                 }
             }
@@ -528,7 +529,7 @@ int smtp_process_input(char * msg, int msglen, smtp_session_t * session) {
                 if(smtp_write_client_msg(session->session_writeback_fd, 334, SMTP_MSG_AUTH, session->session_host) == SMTP_FAIL){
                     printf("Write Failed, Abort Session\n");
                     ERROR_SYS("Wrie to Client");
-                    return SMTP_QUIT;
+                    return CONN_QUIT;
                 }
             }
             break;
@@ -542,7 +543,7 @@ int smtp_process_input(char * msg, int msglen, smtp_session_t * session) {
                 if(smtp_write_client_msg(session->session_writeback_fd, 250, SMTP_MSG_SENDER, session->session_from) == SMTP_FAIL){
                     printf("Write Failed, Abort Session\n");
                     ERROR_SYS("Wrie to Client");
-                    return SMTP_QUIT;
+                    return CONN_QUIT;
                 }
             } 
             break;
@@ -561,14 +562,14 @@ int smtp_process_input(char * msg, int msglen, smtp_session_t * session) {
                             || smtp_write_client_msg(session->session_writeback_fd, 554, SMTP_MSG_RELAY_DENIED2, NULL) == SMTP_FAIL){
                         printf("Write Failed, Abort Session\n");
                         ERROR_SYS("Wrie to Client");
-                        return SMTP_QUIT;
+                        return CONN_QUIT;
                     }
                 } else {
                     session->session_state = RCPT;
                     if(smtp_write_client_msg(session->session_writeback_fd, 250, SMTP_MSG_RCPT, session->session_to) == SMTP_FAIL){
                         printf("Write Failed, Abort Session\n");
                         ERROR_SYS("Wrie to Client");
-                        return SMTP_QUIT;
+                        return CONN_QUIT;
                     }
                 }
             } 
@@ -582,7 +583,7 @@ int smtp_process_input(char * msg, int msglen, smtp_session_t * session) {
                 if(smtp_write_client_msg(session->session_writeback_fd, 250, SMTP_MSG_DATA, NULL) == SMTP_FAIL){
                     printf("Write Failed, Abort Session\n");
                     ERROR_SYS("Wrie to Client");
-                    return SMTP_QUIT;
+                    return CONN_QUIT;
                 }
             } 
             break;
@@ -617,7 +618,7 @@ int smtp_process_input(char * msg, int msglen, smtp_session_t * session) {
 
         /* quit state, session should never reach this */
         case QUIT:
-            return SMTP_QUIT;
+            return CONN_QUIT;
             break;
 
         /* reads the auth data */
@@ -628,14 +629,14 @@ int smtp_process_input(char * msg, int msglen, smtp_session_t * session) {
                     session->session_state = HELO;
                     printf("Write Failed, Abort Session\n");
                     ERROR_SYS("Wrie to Client");
-                    return SMTP_QUIT;
+                    return CONN_QUIT;
                 }
             } else {
                 if (smtp_write_client_msg(session->session_writeback_fd, 535, SMTP_MSG_AUTH_NOK, NULL) == SMTP_FAIL){
                     session->session_state = EHLO;
                     printf("Write Failed, Abort Session\n");
                     ERROR_SYS("Wrie to Client");
-                    return SMTP_QUIT;
+                    return CONN_QUIT;
                 }
             }
             break;
@@ -653,10 +654,10 @@ int smtp_process_input(char * msg, int msglen, smtp_session_t * session) {
     if ( CHECK_QUIT == result ) {
         session->session_state = QUIT;
         printf("QUIT!!\n");
-        return SMTP_QUIT;
+        return CONN_QUIT;
     }
     printf("%s\n",msg);
 
 
-    return SMTP_CONT;
+    return CONN_CONT;
 }

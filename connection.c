@@ -11,17 +11,24 @@
 #include "connection.h"
 #include "config.h"
 #include "smtp.h"
+#include "forward.h"
 
 #define BUF_SIZE 4096 
 
+typedef struct mysocket mysocket_t;
+typedef void* (* data_init_t   )(int socket);
+typedef int   (* data_deleter_t)(void * data);
+typedef int   (* data_handler_t)(char * msg, ssize_t msglen, void * data);
+typedef int   (* read_handler_t)(mysocket_t*);
 
 //! Socket and assigned data
-typedef struct mysocket {
+struct mysocket {
     int    socket_fd;
     void * socket_data;
-    int (* socket_handler)(int socket, void * data);
-    int (* socket_data_deleter)(void * data);
-} mysocket_t;
+    read_handler_t socket_read_handler;
+    data_handler_t socket_data_handler;
+    data_deleter_t socket_data_deleter;
+};
 
 //! Socket lisz
 typedef struct mysocket_list {
@@ -87,14 +94,17 @@ int conn_setup_listen(const char * port) {
 
 //! Helper for socket list elements
 static inline mysocket_list_t * conn_build_socket_elem(int fd, void * data, 
-	int (* handler)(int, void *), int (* data_deleter)(void *)){
+	read_handler_t read_handler, 
+        data_handler_t data_handler, 
+        data_deleter_t data_deleter){
     mysocket_list_t * elem;
 
     elem = malloc(sizeof(mysocket_list_t));
     
     elem->list_next = NULL;
     elem->list_socket.socket_data = data;
-    elem->list_socket.socket_handler = handler;
+    elem->list_socket.socket_read_handler = read_handler;
+    elem->list_socket.socket_data_handler = data_handler;
     elem->list_socket.socket_data_deleter = data_deleter;
     
     if ( -1 == (elem->list_socket.socket_fd = fd) ) {
@@ -188,66 +198,64 @@ static inline readbuf_t * conn_read_normal_buff(int socket){
 }
 
 //! Read some smtp data
-int conn_read_smtp(int socket, void *data){
-    readbuf_t * buf = conn_read_normal_buff(socket);
+int conn_read_normal(mysocket_t * socket){
+    readbuf_t * buf = conn_read_normal_buff(socket->socket_fd);
     int status;
 
     if (0 < buf->readbuf_len){
 
-        printf("process smtp: %s\n", buf->readbuf_data);
-        status = smtp_process_input(buf->readbuf_data, buf->readbuf_len, data);
+        printf("process: %s\n", buf->readbuf_data);
+        status = socket->socket_data_handler(buf->readbuf_data, 
+                buf->readbuf_len, socket->socket_data);
 
-        if (SMTP_QUIT == status) {
-            conn_delete_socket_elem(socket);
+        if (CONN_QUIT == status) {
+            conn_delete_socket_elem(socket->socket_fd);
         }
 
         free(buf->readbuf_data);
     } else {
         printf("%i\n", buf->readbuf_len);
-        conn_delete_socket_elem(socket);
+        conn_delete_socket_elem(socket->socket_fd);
     }
     free(buf);
     return 0;
 }
 
-//! Read some pop3 data
-int conn_read_pop3(int socket, void *data){
-    /* TODO implement! */
-    return 0;
-}
-
 //! Read some pop3s data
-int conn_read_pop3s(int socket, void *data){
+int conn_read_ssl(mysocket_t * socket){
     /* TODO implement! */
     return 0;
 }
 
 //! Accept a smtp connection
-int conn_accept_smtp_client(int socket, void *data){
-    int new;
-    struct sockaddr sa;
-    size_t len = sizeof(sa);
+int conn_accept_normal_client(mysocket_t * socket){
+    int               new;
+    struct            sockaddr sa;
+    size_t            len = sizeof(sa);
     mysocket_list_t * elem;
-    smtp_session_t * session;
+    void *            data;
+    data_init_t       init_handler = (data_init_t)socket->socket_data;
 
     printf("smtp\n");
-    if ( -1 == (new = accept(socket, &sa, &len)) ) {
+    if ( -1 == (new = accept(socket->socket_fd, &sa, &len)) ) {
         return CONN_FAIL;
     }
 
-    if( NULL == (session = smtp_create_session(new)) ) {
+    if( NULL == (data = init_handler(new)) ) {
         close(new);
         return CONN_FAIL;
     }
 
-    elem = conn_build_socket_elem(new, session, conn_read_smtp, 
-            (int (*)(void *))smtp_destroy_session);
+    elem = conn_build_socket_elem(new, data, 
+            conn_read_normal, 
+            (data_handler_t)socket->socket_data_handler,
+            (data_deleter_t)socket->socket_data_deleter);
     if (NULL == elem) {
-        smtp_destroy_session(session);
+        socket->socket_data_deleter(data);
         close(new);
     }
     if ( CONN_FAIL == conn_append_socket_elem(elem) ) {
-        smtp_destroy_session(session);
+        socket->socket_data_deleter(data);
         free(elem);
         close(new);
         return CONN_FAIL;
@@ -256,15 +264,8 @@ int conn_accept_smtp_client(int socket, void *data){
     return CONN_OK;
 }
 
-//! Accept a pop3 connection
-int conn_accept_pop3_client(int socket, void *data){
-    /* TODO implement! */
-    printf("pop3\n");
-    return 0;
-}
-
 //! Accept a Pop3S connection
-int conn_accept_pop3s_client(int socket, void *data){
+int conn_accept_ssl_client(mysocket_t * socket){
     /* TODO implement! */
     printf("pop3s\n");
     return 0;
@@ -277,21 +278,22 @@ int conn_init(){
 
     /* Setup SMTP */
     fd = conn_setup_listen(config_get_smtp_port());
-    elem = conn_build_socket_elem(fd, NULL, conn_accept_smtp_client, NULL);
+    elem = conn_build_socket_elem(fd, smtp_create_session, conn_accept_normal_client, 
+            (data_handler_t)smtp_process_input, (data_deleter_t)smtp_destroy_session);
     if (NULL == elem) 
         return CONN_FAIL;
     socketlist_head = elem;
 
     /* Setup POP3 */
     fd = conn_setup_listen(config_get_pop_port());
-    elem->list_next = conn_build_socket_elem(fd, NULL, conn_accept_pop3_client, NULL);
+    elem->list_next = conn_build_socket_elem(fd, NULL, conn_accept_normal_client, NULL, NULL);
     elem = elem->list_next;
     if (NULL == elem) 
         return CONN_FAIL;
 
     /* Setup POP3S */
     fd = conn_setup_listen(config_get_pops_port());
-    elem->list_next = conn_build_socket_elem(fd, NULL, conn_accept_pop3s_client, NULL);
+    elem->list_next = conn_build_socket_elem(fd, NULL, conn_accept_ssl_client, NULL, NULL);
     elem = elem->list_next;
     if (NULL == elem) 
         return CONN_FAIL;
@@ -327,7 +329,7 @@ int conn_wait_loop(){
             fd = elem->list_socket.socket_fd;
             if (FD_ISSET(fd, &rfds)) {
                 printf("fd: %i\n", fd);
-                (elem->list_socket.socket_handler)(fd, elem->list_socket.socket_data);
+                (elem->list_socket.socket_read_handler)(&(elem->list_socket));
                 i++;
             }
             elem = elem->list_next;
@@ -354,7 +356,29 @@ ssize_t conn_writeback(int fd, char * buf, ssize_t len) {
     return write(fd, buf, len);
 }
 
-int conn_connect_socket(char * host, char * port) {
+static inline int conn_queue_forward_socket(int fd, fwd_mail_t * data){
+    mysocket_list_t * elem;
+
+    elem = conn_build_socket_elem(fd, data, 
+            (read_handler_t)conn_read_normal,
+            (data_handler_t)fwd_process_input,
+            (data_deleter_t)fwd_free_mail);
+
+    if (NULL == elem) {
+        fwd_free_mail(data);
+        close(fd);
+    }
+
+    if ( CONN_FAIL == conn_append_socket_elem(elem) ) {
+        fwd_free_mail(data);
+        free(elem);
+        close(fd);
+        return CONN_FAIL;
+    }
+    return CONN_OK;
+}
+
+static inline int conn_connect_socket(char * host, char * port) {
     int new = 0;
     struct addrinfo hints;
     struct addrinfo* res;
@@ -381,22 +405,17 @@ int conn_connect_socket(char * host, char * port) {
     return new;
 }
 
-int conn_queue_socket(int fd, void * data, int (* handler)(int, void *), int (* data_deleter)(void *)){
-    mysocket_list_t * elem;
 
-    elem = conn_build_socket_elem(fd, data, handler,
-            (int (*)(void *))data_deleter);
 
-    if (NULL == elem) {
-        data_deleter(data);
-        close(fd);
-    }
+int conn_new_fwd_socket(char * host,  void * data){
+    int new = 0;
+    fwd_mail_t * data_ = (fwd_mail_t*) data;
 
-    if ( CONN_FAIL == conn_append_socket_elem(elem) ) {
-        data_deleter(data);
-        free(elem);
-        close(fd);
+    if ( CONN_FAIL == (new = conn_connect_socket(host, "25")) ) {
         return CONN_FAIL;
     }
-    return CONN_OK;
+    if (CONN_FAIL == conn_queue_forward_socket(new, data_)) {
+        return CONN_FAIL;
+    }
+    return new;
 }
