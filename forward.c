@@ -17,11 +17,19 @@ enum fwd_states {
     QUIT
 };
 
+enum response {
+    R_OK,
+    R_RETRY,
+    R_NOP,
+    R_FAIL
+};
+
 struct fwd_mail {
     int             fwd_writeback_fd;
     char *          fwd_from;
     char *          fwd_to;
     enum fwd_states fwd_state; 
+    int             fwd_trycount;
     body_line_t *   fwd_body_head;
     body_line_t *   fwd_body_pos;
 }; 
@@ -93,46 +101,22 @@ static inline void fwd_delete_body_lines(body_line_t * start){
 }
 
 
-int fwd_queue(body_line_t * body, char * from, char * to){
-    int          new      = 0;
-    char *       host     = fwd_send_host(to);
-    fwd_mail_t * new_mail = malloc(sizeof(fwd_mail_t));
-    size_t len;
-
-    if( -1 == (new = conn_new_fwd_socket(host, new_mail)) ) {
-        return FWD_FAIL;
-    }
-    
-    new_mail->fwd_writeback_fd = new;
-    new_mail->fwd_body_head    = copy_body(body);
-    new_mail->fwd_body_pos     = new_mail->fwd_body_head;
-
-    len = strlen(from) +1;
-    new_mail->fwd_from = malloc(sizeof(char) * len);
-    memcpy(new_mail->fwd_from, from, len);
-
-    len = strlen(to) +1;
-    new_mail->fwd_to = malloc(sizeof(char) * len);
-    memcpy(new_mail->fwd_to, to, len);
-
-    free(host);
-    return FWD_OK;
-}
-
 //! extracts the replycode from the string
 int extract_status(char* buff){
-  int ret = 0;
-  char *pos;
-  if((pos = strchr(buff, ' ')) != NULL){
-    *pos = '\0';
-    ret = atoi(buff);
-    *pos = ' ';
-  }
-  return ret;
+    int ret = 0;
+    char *pos;
+    if((pos = strchr(buff, ' ')) != NULL){
+        if ( 3 > (pos - buff))
+            return 0;
+        *pos = '\0';
+        ret = atoi(buff);
+        *pos = ' ';
+    }
+    return ret;
 }
 
 //! write a command
-static inline int fwd_write_command(int remote_fd, char *command, char * data){
+static inline int fwd_write_command(int remote_fd, const char *command, const char * data){
     size_t  len1 = strlen(command);
     size_t  len2 = strlen(data);
     size_t  len  = len1 + len2;
@@ -155,23 +139,129 @@ static inline int fwd_write_command(int remote_fd, char *command, char * data){
     return FWD_OK;
 }
 
+static inline int check_cmd_reply(char * buf, int expected) {
+   int status = extract_status(buf);
+   if (0 == status) {
+       return  R_NOP;
+   }
+   if (expected == status) {
+       return R_OK;
+   }
+   if(status > 499 || status < 400){
+       return R_FAIL;
+   }
+   return R_RETRY;
+}
+
+int fwd_queue(body_line_t * body, char * from, char * to){
+    int          new      = 0;
+    char *       host     = fwd_send_host(to);
+    fwd_mail_t * new_mail = malloc(sizeof(fwd_mail_t));
+    size_t len;
+
+    if( -1 == (new = conn_new_fwd_socket(host, new_mail)) ) {
+        return FWD_FAIL;
+    }
+    
+    new_mail->fwd_writeback_fd = new;
+    new_mail->fwd_trycount     = 0;
+    new_mail->fwd_body_head    = copy_body(body);
+    new_mail->fwd_body_pos     = new_mail->fwd_body_head;
+
+    len = strlen(from) +1;
+    new_mail->fwd_from = malloc(sizeof(char) * len);
+    memcpy(new_mail->fwd_from, from, len);
+
+    len = strlen(to) +1;
+    new_mail->fwd_to = malloc(sizeof(char) * len);
+    memcpy(new_mail->fwd_to, to, len);
+
+    free(host);
+    return FWD_OK;
+}
+
 int fwd_process_input(char * msg, ssize_t msglen, fwd_mail_t * fwd){
+    int status;
+
     switch (fwd->fwd_state) {
         case NEW:
+            status = check_cmd_reply(msg, 220);
+            if (R_OK != status || R_NOP != status){
+                status = R_FAIL;
+            } else {
+                const char * myhost = "localhost";
+
+                if (NULL != config_get_hostname()) {
+                    myhost = config_get_hostname();
+                }
+                if (FWD_FAIL == fwd_write_command(fwd->fwd_writeback_fd, "HELO", myhost)) {
+                    return CONN_QUIT;
+                }
+                fwd->fwd_trycount++;
+                fwd->fwd_state = HELO;
+            }
             break;
+
         case HELO:
+            status = check_cmd_reply(msg, 250);
+            if (R_OK == status) {
+                fwd->fwd_trycount = 0;
+                if (FWD_FAIL == fwd_write_command(fwd->fwd_writeback_fd, "MAIL FROM:", fwd->fwd_from)) {
+                    return CONN_QUIT;
+                }
+                fwd->fwd_trycount++;
+                fwd->fwd_state = MAIL;
+            }
+            if (R_RETRY == status){
+                fwd->fwd_state = NEW;
+            } 
             break;
+
         case MAIL:
+            status = check_cmd_reply(msg, 250);
+            if (R_OK == status) {
+                fwd->fwd_trycount = 0;
+                if (FWD_FAIL == fwd_write_command(fwd->fwd_writeback_fd, "RCPT TO:", fwd->fwd_to)) {
+                    return CONN_QUIT;
+                }
+                fwd->fwd_trycount++;
+                fwd->fwd_state = RCPT;
+            }
+            if (R_RETRY == status){
+                fwd->fwd_state = HELO;
+            } 
             break;
+
         case RCPT:
+            status = check_cmd_reply(msg, 250);
+            if (R_OK == status) {
+                fwd->fwd_trycount = 0;
+                if (FWD_FAIL == fwd_write_command(fwd->fwd_writeback_fd, "DATA", "")) {
+                    return CONN_QUIT;
+                }
+                fwd->fwd_trycount++;
+                fwd->fwd_state = DATA;
+            }
+            if (R_RETRY == status){
+                fwd->fwd_state = MAIL;
+            } 
             break;
+
         case DATA:
+            status = check_cmd_reply(msg, 354);
             break;
         case QUIT:
             return CONN_QUIT;
             break;
 
     }
+
+    if (R_FAIL == status) {
+        /* handle error mail srtuff */
+        fwd->fwd_state = QUIT;
+        return CONN_QUIT;
+    }
+
     return CONN_OK;
 }
 
