@@ -13,6 +13,9 @@ int smtp_process_input(char * msg, int msglen, smtp_session_t *);
 
 
 #define SMTP_MSG_GREET          "%d %s SMTP Relay by Jan Losinski\r\n"
+#define SMTP_MSG_AUTH           "%d \r\n"
+#define SMTP_MSG_AUTH_OK        "%d Authentication successful\r\n"
+#define SMTP_MSG_AUTH_NOK       "%d Error: authentication failed\r\n"
 #define SMTP_MSG_RESET          "%d RESET Accepted, Resetted\r\n"
 #define SMTP_MSG_NOOP           "%d NOOP Ok, I'm here\r\n"
 #define SMTP_MSG_BYE            "%d Bye Bye.\r\n"
