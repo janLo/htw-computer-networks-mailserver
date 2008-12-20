@@ -627,6 +627,8 @@ int smtp_process_input(char * msg, int msglen, smtp_session_t * session) {
         case QUIT:
             return SMTP_QUIT;
             break;
+
+        /* reads the auth data */
         case AUTH:
             result = smtp_process_auth_line(msg, msglen, session);
             if ( CHECK_OK == result ) {
@@ -647,12 +649,15 @@ int smtp_process_input(char * msg, int msglen, smtp_session_t * session) {
             break;
     }
 
+    /* Reset a session for new delivery */
     if ( CHECK_RESET == result ) {
         if (NEW != session->session_state) {
             session->session_state = HELO;
         }
         printf("RESET!!\n");
     }
+
+    /* Quit a connection */
     if ( CHECK_QUIT == result ) {
         session->session_state = QUIT;
         printf("QUIT!!\n");
