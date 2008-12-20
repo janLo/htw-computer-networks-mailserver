@@ -50,9 +50,6 @@ enum smtp_types {
     ESMTP
 };
 
-typedef struct body_line body_line_t;
-
-
 struct smtp_session {
     enum smtp_types     session_type;
     enum session_states session_state;
@@ -66,11 +63,6 @@ struct smtp_session {
     body_line_t *       session_data;
 };
 
-struct body_line {
-    char * line_data;
-    int    line_len;
-    body_line_t * line_next;
-};
 
 
 

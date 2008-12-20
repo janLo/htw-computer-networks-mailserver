@@ -1,4 +1,11 @@
 typedef struct smtp_session smtp_session_t;
+typedef struct body_line body_line_t;
+
+struct body_line {
+    char * line_data;
+    int    line_len;
+    body_line_t * line_next;
+};
 
 #define SMTP_CONT 0
 #define SMTP_QUIT -1

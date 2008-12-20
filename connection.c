@@ -353,3 +353,50 @@ int conn_close() {
 ssize_t conn_writeback(int fd, char * buf, ssize_t len) {
     return write(fd, buf, len);
 }
+
+int conn_connect_socket(char * host, char * port) {
+    int new = 0;
+    struct addrinfo hints;
+    struct addrinfo* res;
+
+    if((new = socket(PF_INET, SOCK_STREAM, 0)) == -1){
+        ERROR_SYS("socket creation");
+        return CONN_FAIL;
+    }
+
+    memset(&hints, 0, sizeof(hints));
+
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_protocol = IPPROTO_TCP;
+
+    getaddrinfo(host, port, &hints, &res);
+
+    if (connect(new, res->ai_addr, res->ai_addrlen) == -1) {
+        ERROR_SYS("socket creation");
+        return CONN_FAIL;
+    }
+
+    freeaddrinfo(res);
+    return new;
+}
+
+int conn_queue_socket(int fd, void * data, int (* handler)(int, void *), int (* data_deleter)(void *)){
+    mysocket_list_t * elem;
+
+    elem = conn_build_socket_elem(fd, data, handler,
+            (int (*)(void *))data_deleter);
+
+    if (NULL == elem) {
+        data_deleter(data);
+        close(fd);
+    }
+
+    if ( CONN_FAIL == conn_append_socket_elem(elem) ) {
+        data_deleter(data);
+        free(elem);
+        close(fd);
+        return CONN_FAIL;
+    }
+    return CONN_OK;
+}

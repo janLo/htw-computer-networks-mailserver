@@ -1,7 +1,7 @@
 CFLAGS = -Wall -g
 LDFLAGS = -lsqlite3 `pkg-config --libs-only-l openssl`
 
-OBJS = mailbox.o main.o config.o connection.o fail.o smtp.o
+OBJS = mailbox.o main.o config.o connection.o fail.o smtp.o forward.o
 BIN  = mailtool
 
 $(BIN): $(OBJS)
