@@ -62,7 +62,7 @@ sqlite3_stmt * statement_delete; //! Prepared statement for deleting marked mail
  * \param size The size of the mail blob. If size will be 0, the actual 
  *             strlen() + 1 will be used.
  */
-void push_mail(char * user, char * data, size_t size){
+void mbox_push_mail(char * user, char * data, size_t size){
     if (0 == size) {
         size = strlen(data);
     }

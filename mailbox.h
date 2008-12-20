@@ -15,7 +15,7 @@
 typedef struct mailbox  mailbox_t;
 
 
-void push_mail(char * user, char * data, size_t size);
+void mbox_push_mail(char * user, char * data, size_t size);
 
 const char * mbox_get_error_msg();
 

@@ -1,7 +1,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
-
+#include <ctype.h>
 #include <netdb.h>
 
 #include <openssl/sha.h>
@@ -14,6 +14,7 @@
 #include "connection.h"
 #include "config.h"
 #include "fail.h"
+#include "mailbox.h"
 
 enum check_states {
     CHECK_OK,
@@ -94,6 +95,28 @@ char * unbase64(unsigned char *input, int length)
     return buffer;
 }
 
+//! Converts a String to uppercase
+/*!
+ * Convers a char sequence to upper case for better matching with strcmp(). The
+ * provided sequence will be modified, no copy will be created! 
+ * The parameter len is optional to prevent the function from do a strlen() at
+ * first to determine the length of the string. If it is set to 0, a strlen will
+ * count the length of the string at first.
+ * \param str The String to convert.
+ * \param len The length of the string _without_ null terminator.
+ */
+inline void config_to_upper(char * str, size_t len){
+    size_t i;
+
+    if (0 == len){
+        len = strlen(str);
+    }
+    for ( i = 0; i < len; i++ ) {
+        str[i] = toupper(str[i]);
+    }
+}
+
+//! Decode mase64 encoded string
 int smtp_write_client_msg(int fd, int status, const char *msg, const char *add){
     int len, ret = SMTP_FAIL;
     char *buff;
@@ -116,18 +139,21 @@ int smtp_write_client_msg(int fd, int status, const char *msg, const char *add){
     return ret;
 }
 
+//! Check if a Prefix is correct
 static inline int smtp_check_prefix(char *buf,  char *prefix) {
     int    len = strlen(prefix);
     int    ret = CHECK_ABRT;
 
+    config_to_upper(buf, len);
+
     if (0 == strncmp(buf, prefix, len)){
         ret = CHECK_OK;
-        printf("==\n");
     }
 
     return ret;
 }
 
+//! Checks if a input lise looks as expected
 static int smtp_check_input(char *buff,  char *prefix, char delim, int (*check_fkt)(char *), char **val){
     char *arg;
     int check;
@@ -141,13 +167,19 @@ static int smtp_check_input(char *buff,  char *prefix, char delim, int (*check_f
         return CHECK_DELIM;
     }
     *arg = '\0';
-    if(strncmp(buff, prefix, strlen(prefix)) != 0){
+    if(CHECK_OK != smtp_check_prefix(buff, prefix)){
         printf("Prefix-check failed\n");
         return CHECK_PREF;
     }
 
     if(delim != '\0'){
         arg++;
+        
+        /* eat tabs and spaces */
+        while( (*arg == ' ' || *arg == '\t') && arg < (buff + (len - 1)) ) {
+            arg++;
+        }
+
         if (arg > (buff + (len - 1))){
             printf("No Argument after\n");
             return CHECK_ARG;
@@ -268,6 +300,15 @@ static int smtp_process_input_line(char * buf, ssize_t buflen, char *prefix, cha
     return CHECK_ABRT;
 }
 
+static inline char * smtp_extraxt_mbox_user(const char * addr) {
+    int len = strchr(addr, '@') - addr;
+    char * buf = malloc(sizeof(char) * len +1);
+    memcpy(buf, addr, len);
+    buf[len ] = '\0';
+    return buf;
+}
+
+//! Check if a sequence is a valid hostname
 static int smtp_check_addr(char * addr){
     if (gethostbyname(addr) == NULL) {
         return ARG_BAD;
@@ -276,6 +317,7 @@ static int smtp_check_addr(char * addr){
     return  ARG_OK;
 }
 
+//! check basical if a given sequence is a mail address
 static int smtp_check_mail(char * addr){
     char *pos = strchr(addr, '@');
     if(pos != NULL){
@@ -288,6 +330,7 @@ static int smtp_check_mail(char * addr){
     return ARG_BAD;
 }
 
+//! Checks if a host is the local host or not
 static inline int smtp_check_mail_host_local(char * addr) {
     const char * myhost = "localhost";
     char *pos = strchr(addr, '@') + 1;
@@ -297,24 +340,26 @@ static inline int smtp_check_mail_host_local(char * addr) {
     }
 
     if (0 == strcmp(myhost, pos)){
+        printf("smtp_check_mail_host_local: TRUE\n");
         return ARG_OK;
     } 
     return ARG_BAD;
 }
 
+//! Check if the user of a mail address exists locally
 static inline int smtp_check_mail_user_local(char * addr) {
-    int len = strchr(addr, '@') - addr;
-    char * buf = malloc(sizeof(char) * len);
-    memcpy(buf, addr, len);
-    buf[len - 1] = '\0';
+    char * buf = smtp_extraxt_mbox_user(addr);
 
     if (config_has_user(buf)) {
+        printf("smtp_check_mail_user_local: TRUE\n");
+        free(buf);
         return ARG_OK;
     }
+    free(buf);
     return ARG_BAD;
 }
 
-
+//! Deletes all body lines od a session
 static void smtp_delete_body_lines(smtp_session_t * session){
     body_line_t * tmp1 = session->session_data;
     body_line_t * tmp2 = session->session_data;
@@ -325,9 +370,11 @@ static void smtp_delete_body_lines(smtp_session_t * session){
         free(tmp2->line_data);
         free(tmp2);
     }
+    session->session_data = NULL;
 }
 
-body_line_t * smtp_create_body_line(char * line, int line_len){
+//! Build a new mail-body-line
+static inline body_line_t * smtp_create_body_line(char * line, int line_len){
     body_line_t * new = NULL;
 
     new = malloc(sizeof(body_line_t));
@@ -341,7 +388,7 @@ body_line_t * smtp_create_body_line(char * line, int line_len){
 }
 
 //! Append a mailbody line to the body list
-body_line_t * smtp_append_body_line(body_line_t * list, char * line, int line_len) {
+static inline body_line_t * smtp_append_body_line(body_line_t * list, char * line, int line_len) {
     body_line_t * new = NULL;
     body_line_t * tmp = list;
 
@@ -356,9 +403,33 @@ body_line_t * smtp_append_body_line(body_line_t * list, char * line, int line_le
     return new;
 }
 
+//! Pack all lines of a message in one piece of mem
+static char * smtp_collapse_body_lines(smtp_session_t * session){
+    ssize_t size  = 0;
+    char *  buf   = NULL;
+    char *  pos   = NULL;
+    body_line_t * line = session->session_data;
+
+    while (NULL != line){
+        size += line->line_len;
+        line = line->line_next;
+    }
+
+    line = session->session_data;
+    buf = malloc(sizeof(char) * size);
+    pos = buf;
+
+    while (NULL != line){
+        memcpy(pos, line->line_data, line->line_len);
+        pos += line->line_len;
+        line = line->line_next;
+    }
+
+    return buf;
+}
 
 
-/* TODO implement! */
+//! Reads the body data of a email 
 static int smtp_process_body_data(char * buf, int buflen, smtp_session_t * session){
     body_line_t * new = NULL;
    
@@ -376,6 +447,7 @@ static int smtp_process_body_data(char * buf, int buflen, smtp_session_t * sessi
 
 
     if (NULL == session->session_data) {
+        /* TODO add recive headers here! */
         new = session->session_data = smtp_create_body_line(buf, buflen);
     } else {
         new = smtp_append_body_line(session->session_data, buf, buflen);
@@ -411,6 +483,7 @@ smtp_session_t * smtp_create_session(int writeback_fd) {
     return new;
 }
 
+//! Free all resources of a smtp session
 int smtp_destroy_session(smtp_session_t * session) {
     if (NULL != session) {
         smtp_clean_mail_fields(session);
@@ -420,6 +493,7 @@ int smtp_destroy_session(smtp_session_t * session) {
     return 0;
 }
 
+//! Process the input of a SMTP connection
 int smtp_process_input(char * msg, int msglen, smtp_session_t * session) {
     int ehlo;
     int result;
@@ -498,8 +572,8 @@ int smtp_process_input(char * msg, int msglen, smtp_session_t * session) {
                         return SMTP_QUIT;
                     }
                 } else {
+                    session->session_state = RCPT;
                     if(smtp_write_client_msg(session->session_writeback_fd, 250, SMTP_MSG_RCPT, session->session_to) == SMTP_FAIL){
-                        session->session_state = RCPT;
                         printf("Write Failed, Abort Session\n");
                         ERROR_SYS("Wrie to Client");
                         return SMTP_QUIT;
@@ -525,10 +599,23 @@ int smtp_process_input(char * msg, int msglen, smtp_session_t * session) {
         case DATA:
             result = smtp_process_body_data(msg, msglen, session);
             if (CHECK_QUIT == result) {
+                char * full_msg = smtp_collapse_body_lines(session);
+
+                printf("MSG:\n%s\n", full_msg);
+
+                if (session->session_rcpt_local){
+                    char * user = smtp_extraxt_mbox_user(session->session_to);
+                    mbox_push_mail(user, full_msg, 0);
+                } else {
+                }
                 /* Send */
+
+                free(full_msg);
+                result = CHECK_RESET;
             } 
             if (CHECK_ABRT == result) {
                 /* EOM */
+                result = CHECK_QUIT;
             }
             break;
 
