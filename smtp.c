@@ -2,7 +2,7 @@
 #include <string.h>
 #include <stdio.h>
 
-#include <string.h>
+#include <netdb.h>
 
 #include <openssl/sha.h>
 #include <openssl/hmac.h>
@@ -49,6 +49,9 @@ enum smtp_types {
     ESMTP
 };
 
+typedef struct body_line body_line_t;
+
+
 struct smtp_session {
     enum smtp_types     session_type;
     enum session_states session_state;
@@ -59,7 +62,19 @@ struct smtp_session {
     char *              session_to;
     int                 session_writeback_fd;
     int                 session_rcpt_local;
+    body_line_t *       session_data;
 };
+
+struct body_line {
+    char * line_data;
+    int    line_len;
+    body_line_t * line_next;
+};
+
+
+
+
+
 
 char * unbase64(unsigned char *input, int length)
 {
@@ -176,26 +191,26 @@ static inline void smtp_reset_session(smtp_session_t * session) {
 }
 
 static int smtp_process_auth_line(char * buf, ssize_t buflen,  smtp_session_t * session){
-   char * plain = unbase64((unsigned char *)buf, buflen);
-   char * id = plain;
-   char * auth = strchr(plain, '\0') + 1;
-   char * pass = strchr(auth, '\0') + 1;
-   int    ret = CHECK_ABRT;
-   int    len = 0;
+    char * plain = unbase64((unsigned char *)buf, buflen);
+    char * id = plain;
+    char * auth = strchr(plain, '\0') + 1;
+    char * pass = strchr(auth, '\0') + 1;
+    int    ret = CHECK_ABRT;
+    int    len = 0;
 
-   printf("PLAIN: %s .. %s .. %s\n", id, auth, pass);
-   
-   if (config_has_user(auth) && config_verify_user_passwd(auth, pass)) {
-       session->session_authenticated = 1;
-       len = strlen(auth) + 1;
-       session->session_user = malloc(sizeof(char) * len);
-       memcpy(session->session_user, auth, len);
-       printf("Authenticated\n");
-       ret = CHECK_OK;
-   }
+    printf("PLAIN: %s .. %s .. %s\n", id, auth, pass);
 
-   free(plain);
-   return ret;
+    if (config_has_user(auth) && config_verify_user_passwd(auth, pass)) {
+        session->session_authenticated = 1;
+        len = strlen(auth) + 1;
+        session->session_user = malloc(sizeof(char) * len);
+        memcpy(session->session_user, auth, len);
+        printf("Authenticated\n");
+        ret = CHECK_OK;
+    }
+
+    free(plain);
+    return ret;
 }
 
 static int smtp_process_input_line(char * buf, ssize_t buflen, char *prefix, char delim, int (*check_fkt)(char *), char **val, smtp_session_t * session){
@@ -253,14 +268,18 @@ static int smtp_process_input_line(char * buf, ssize_t buflen, char *prefix, cha
     return CHECK_ABRT;
 }
 
-static int check_addr(char * addr){
-      return ((strlen(addr) > 1) ? ARG_OK : ARG_BAD);
+static int smtp_check_addr(char * addr){
+    if (gethostbyname(addr) == NULL) {
+        return ARG_BAD;
+    }
+
+    return  ARG_OK;
 }
 
-int check_mail(char * addr){
+static int smtp_check_mail(char * addr){
     char *pos = strchr(addr, '@');
     if(pos != NULL){
-        if (check_addr(pos+1) == ARG_OK){
+        if (smtp_check_addr(pos+1) == ARG_OK){
             if ((pos - addr) > 2){
                 return ARG_OK;
             }
@@ -269,7 +288,102 @@ int check_mail(char * addr){
     return ARG_BAD;
 }
 
+static inline int smtp_check_mail_host_local(char * addr) {
+    const char * myhost = "localhost";
+    char *pos = strchr(addr, '@') + 1;
 
+    if (NULL != config_get_hostname()) {
+        myhost = config_get_hostname();
+    }
+
+    if (0 == strcmp(myhost, pos)){
+        return ARG_OK;
+    } 
+    return ARG_BAD;
+}
+
+static inline int smtp_check_mail_user_local(char * addr) {
+    int len = strchr(addr, '@') - addr;
+    char * buf = malloc(sizeof(char) * len);
+    memcpy(buf, addr, len);
+    buf[len - 1] = '\0';
+
+    if (config_has_user(buf)) {
+        return ARG_OK;
+    }
+    return ARG_BAD;
+}
+
+
+static void smtp_delete_body_lines(smtp_session_t * session){
+    body_line_t * tmp1 = session->session_data;
+    body_line_t * tmp2 = session->session_data;
+
+    while (NULL != tmp1){
+        tmp2 = tmp1;
+        tmp1 = tmp1->line_next;
+        free(tmp2->line_data);
+        free(tmp2);
+    }
+}
+
+body_line_t * smtp_create_body_line(char * line, int line_len){
+    body_line_t * new = NULL;
+
+    new = malloc(sizeof(body_line_t));
+    new->line_next = NULL;
+    new->line_len  = line_len;
+    new->line_data = malloc(sizeof(char) * (line_len+1));
+    memcpy(new->line_data, line, line_len);
+    new->line_data[line_len] = '\0';
+
+    return new;
+}
+
+//! Append a mailbody line to the body list
+body_line_t * smtp_append_body_line(body_line_t * list, char * line, int line_len) {
+    body_line_t * new = NULL;
+    body_line_t * tmp = list;
+
+    while(NULL != tmp){
+        if(NULL == tmp->line_next) {
+            new = smtp_create_body_line(line, line_len);
+            tmp->line_next = new;
+            break;
+        }
+        tmp = tmp->line_next;
+    }
+    return new;
+}
+
+
+
+/* TODO implement! */
+static int smtp_process_body_data(char * buf, int buflen, smtp_session_t * session){
+    body_line_t * new = NULL;
+   
+    if (strncmp(buf, ".\r\n", 3) == 0){
+        return CHECK_QUIT;
+    }
+    if(buf[buflen] == '\n'){
+        buf[buflen] = '\0';
+        buflen--;
+    }
+    if(buf[buflen] == '\r'){
+        buf[buflen] = '\0';
+        buflen--;
+    }
+
+
+    if (NULL == session->session_data) {
+        new = session->session_data = smtp_create_body_line(buf, buflen);
+    } else {
+        new = smtp_append_body_line(session->session_data, buf, buflen);
+    }
+   return (NULL == new ? CHECK_ABRT : CHECK_OK);
+}
+
+//! Build a new SMTP session
 smtp_session_t * smtp_create_session(int writeback_fd) {
     smtp_session_t * new;
     const char * hostname = "localhost";
@@ -300,59 +414,62 @@ smtp_session_t * smtp_create_session(int writeback_fd) {
 int smtp_destroy_session(smtp_session_t * session) {
     if (NULL != session) {
         smtp_clean_mail_fields(session);
+        smtp_delete_body_lines(session);
         free(session);
     }
     return 0;
 }
 
 int smtp_process_input(char * msg, int msglen, smtp_session_t * session) {
-int ehlo;
+    int ehlo;
     int result;
 
     switch (session->session_state) {
 
         /* wait for HELO or EHLO */
         case NEW:
-             ehlo = smtp_check_prefix(msg, "EHLO"); 
-             if (CHECK_OK == ehlo) {
-                 result = smtp_process_input_line(msg, msglen, "EHLO", ' ', check_addr, &(session->session_host), session);
-                 if ( CHECK_OK == result ) {
-                     session->session_state = EHLO;
-                     session->session_type  = ESMTP;
-                     if( smtp_write_client_msg(session->session_writeback_fd, 250, SMTP_MSG_EHLLO, session->session_host) == SMTP_FAIL
-                             || smtp_write_client_msg(session->session_writeback_fd, 250, SMTP_MSG_EHLLO_EXT1, session->session_host) == SMTP_FAIL ) {
-                         printf("Write Failed, Abort Session\n");
-                         ERROR_SYS("Wrie to Client");
-                         return SMTP_QUIT;
-                     }
-                 }
-             } else {
-                 result = smtp_process_input_line(msg, msglen, "HELO", ' ', check_addr, &(session->session_host), session);
-                 if ( CHECK_OK == result ) {
-                     session->session_state = HELO;
-                     if( smtp_write_client_msg(session->session_writeback_fd, 250, SMTP_MSG_HELLO, session->session_host) == SMTP_FAIL){
-                         printf("Write Failed, Abort Session\n");
-                         ERROR_SYS("Wrie to Client");
-                         return SMTP_QUIT;
-                     }
-                 }
-             }
-            break;
-
-        /* wait for AUTH */
-        case EHLO:
-                result = smtp_process_input_line(msg, msglen, "AUTH", '\0', NULL, NULL, session);
+            ehlo = smtp_check_prefix(msg, "EHLO"); 
+            if (CHECK_OK == ehlo) {
+                result = smtp_process_input_line(msg, msglen, "EHLO", ' ', smtp_check_addr, &(session->session_host), session);
                 if ( CHECK_OK == result ) {
-                    session->session_state = AUTH;
-                    if(smtp_write_client_msg(session->session_writeback_fd, 334, SMTP_MSG_AUTH, session->session_host) == SMTP_FAIL){
+                    session->session_state = EHLO;
+                    session->session_type  = ESMTP;
+                    if( smtp_write_client_msg(session->session_writeback_fd, 250, SMTP_MSG_EHLLO, session->session_host) == SMTP_FAIL
+                            || smtp_write_client_msg(session->session_writeback_fd, 250, SMTP_MSG_EHLLO_EXT1, session->session_host) == SMTP_FAIL ) {
                         printf("Write Failed, Abort Session\n");
                         ERROR_SYS("Wrie to Client");
                         return SMTP_QUIT;
                     }
                 }
+            } else {
+                result = smtp_process_input_line(msg, msglen, "HELO", ' ', smtp_check_addr, &(session->session_host), session);
+                if ( CHECK_OK == result ) {
+                    session->session_state = HELO;
+                    if( smtp_write_client_msg(session->session_writeback_fd, 250, SMTP_MSG_HELLO, session->session_host) == SMTP_FAIL){
+                        printf("Write Failed, Abort Session\n");
+                        ERROR_SYS("Wrie to Client");
+                        return SMTP_QUIT;
+                    }
+                }
+            }
             break;
+
+        /* wait for AUTH */
+        case EHLO:
+            result = smtp_process_input_line(msg, msglen, "AUTH", '\0', NULL, NULL, session);
+            if ( CHECK_OK == result ) {
+                session->session_state = AUTH;
+                if(smtp_write_client_msg(session->session_writeback_fd, 334, SMTP_MSG_AUTH, session->session_host) == SMTP_FAIL){
+                    printf("Write Failed, Abort Session\n");
+                    ERROR_SYS("Wrie to Client");
+                    return SMTP_QUIT;
+                }
+            }
+            break;
+
+        /* wait for MAIL FROM */
         case HELO:
-            result = smtp_process_input_line(msg, msglen, "MAIL FROM", ':', check_mail, &(session->session_from), session);
+            result = smtp_process_input_line(msg, msglen, "MAIL FROM", ':', smtp_check_mail, &(session->session_from), session);
             if ( CHECK_OK ==result ) {
                 printf("Sender Mail: %s\n", session->session_from);
                 session->session_state = FROM;
@@ -363,18 +480,35 @@ int ehlo;
                 }
             } 
             break;
+
+        /* wait for RCPT TO */
         case FROM:
-            result = smtp_process_input_line(msg, msglen, "RCPT TO", ':', check_mail, &(session->session_to), session);
-            if ( CHECK_OK ==result ) {
+
+            result = smtp_process_input_line(msg, msglen, "RCPT TO", ':', smtp_check_mail, &(session->session_to), session);
+            if ( CHECK_OK == result ) {
                 printf("Rcpt Mail: %s\n", session->session_to);
-                session->session_state = RCPT;
-                if(smtp_write_client_msg(session->session_writeback_fd, 250, SMTP_MSG_RCPT, session->session_to) == SMTP_FAIL){
-                    printf("Write Failed, Abort Session\n");
-                    ERROR_SYS("Wrie to Client");
-                    return SMTP_QUIT;
+                if (ARG_OK == smtp_check_mail_host_local(session->session_to) && ARG_OK == smtp_check_mail_user_local(session->session_to)) {
+                    session->session_rcpt_local = 1;
+                }
+                if ( (! session->session_authenticated) && (! session->session_rcpt_local) ) {
+                    if(smtp_write_client_msg(session->session_writeback_fd, 554, SMTP_MSG_RELAY_DENIED1, session->session_to) == SMTP_FAIL
+                            || smtp_write_client_msg(session->session_writeback_fd, 554, SMTP_MSG_RELAY_DENIED2, NULL) == SMTP_FAIL){
+                        printf("Write Failed, Abort Session\n");
+                        ERROR_SYS("Wrie to Client");
+                        return SMTP_QUIT;
+                    }
+                } else {
+                    if(smtp_write_client_msg(session->session_writeback_fd, 250, SMTP_MSG_RCPT, session->session_to) == SMTP_FAIL){
+                        session->session_state = RCPT;
+                        printf("Write Failed, Abort Session\n");
+                        ERROR_SYS("Wrie to Client");
+                        return SMTP_QUIT;
+                    }
                 }
             } 
             break;
+
+        /* wait for DATA */
         case RCPT:
             result = smtp_process_input_line(msg, msglen, "DATA", '\0', NULL, NULL, session);
             if ( CHECK_OK ==result ) {
@@ -386,12 +520,25 @@ int ehlo;
                 }
             } 
             break;
-            break;
+
+        /* Eating data lines and waiting for <cr><lf> */
         case DATA:
+            result = smtp_process_body_data(msg, msglen, session);
+            if (CHECK_QUIT == result) {
+                /* Send */
+            } 
+            if (CHECK_ABRT == result) {
+                /* EOM */
+            }
             break;
+
+        /* obsolete state */
         case SEND:
             break;
+
+        /* quit state, session should never reach this */
         case QUIT:
+            return SMTP_QUIT;
             break;
         case AUTH:
             result = smtp_process_auth_line(msg, msglen, session);
