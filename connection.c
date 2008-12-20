@@ -412,6 +412,7 @@ int conn_new_fwd_socket(char * host,  void * data){
     fwd_mail_t * data_ = (fwd_mail_t*) data;
 
     if ( CONN_FAIL == (new = conn_connect_socket(host, "25")) ) {
+        free(data);
         return CONN_FAIL;
     }
     if (CONN_FAIL == conn_queue_forward_socket(new, data_)) {

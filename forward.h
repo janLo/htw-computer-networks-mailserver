@@ -1,10 +1,10 @@
 #include <stdlib.h>
 
-#define FWD_QUIT -1
-#define FWD_CONT 0
+#define FWD_FAIL -1
+#define FWD_OK   0
 
 typedef struct body_line body_line_t;
-typedef struct fdw_mail  fwd_mail_t;
+typedef struct fwd_mail fwd_mail_t;
 
 struct body_line {
     char * line_data;
