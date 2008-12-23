@@ -3,6 +3,8 @@
 #include <stdio.h>
 #include <ctype.h>
 #include <netdb.h>
+#include <netinet/in.h>
+#include <resolv.h>
 
 #include <openssl/sha.h>
 #include <openssl/hmac.h>
@@ -67,10 +69,75 @@ struct smtp_session {
 
 
 
+char * smtp_resolve_mx(const char * host){
+    u_char *p, *end;
+    char name[MAXHOSTNAMELEN + 1];
+    char buf[1024];
+    char * ret = NULL;
+    union {
+        HEADER h;
+        u_char u[PACKETSZ];
+    } q;
+    const HEADER *hp;
+    int len, i;
+
+    strncpy(name,host,MAXHOSTNAMELEN);
+
+    len = res_query(name, C_IN, T_MX, (u_char *)&q, sizeof(q));
+    if(len < 0) {
+        return ret; /* Host has no MX records */
+    }
+
+    if((unsigned int)len > sizeof(q)) 
+    {
+        return ret;
+    }
+
+    hp = &(q.h);
+    p = q.u + HFIXEDSZ;
+    end = q.u + len;
+
+    for(i = ntohs(hp->qdcount); i--; p += len + QFIXEDSZ)
+        if((len = dn_skipname(p, end)) < 0) {
+            return ret;
+        }
+
+    i = ntohs(hp->ancount);
+
+    while((--i >= 0) && (p < end)) 
+    {
+        u_short type, pref;
+        u_long ttl;     /* unused */
+
+        if((len = dn_expand(q.u, end, p, buf, sizeof(buf) - 1)) < 0)
+        {
+            return ret;
+        }
+        p += len;
+        GETSHORT(type, p);
+        p += INT16SZ;
+        GETLONG(ttl, p);
+        GETSHORT(len, p);
+        if(type != T_MX) {
+            p += len;
+            continue;
+        }
+        GETSHORT(pref, p);
+        if((len = dn_expand(q.u, end, p, buf, sizeof(buf) - 1)) < 0)
+        {
+            return ret;
+        }
+
+        len = strlen(buf) + 1;        
+        ret = malloc(sizeof(char) * len);
+        memcpy(ret, buf, len);
+        return ret;
+    }
+    return ret;
+}
 
 
-
-char * unbase64(unsigned char *input, int length)
+char * smtp_unbase64(unsigned char *input, int length)
 {
     BIO *b64, *bmem;
 
@@ -156,7 +223,7 @@ static int smtp_check_input(char *buff,  char *prefix, char delim, int (*check_f
         *val = NULL;
     }
     if((arg = strchr(buff, delim)) == NULL){
-        printf("Delim-check failed\n");
+        printf("Delim-check failed: '%s' has no '%c'\n", buff, delim);
         return CHECK_DELIM;
     }
     *arg = '\0';
@@ -179,7 +246,7 @@ static int smtp_check_input(char *buff,  char *prefix, char delim, int (*check_f
         }
 
         if(check_fkt != NULL && (check = check_fkt(arg)) != ARG_OK){
-            printf("Input-check failed\n");
+            printf("Input-check failed: %s\n", arg);
             return (check == ARG_BAD_MSG ? CHECK_ARG_MSG : CHECK_ARG);
         }
 
@@ -216,7 +283,7 @@ static inline void smtp_reset_session(smtp_session_t * session) {
 }
 
 static int smtp_process_auth_line(char * buf, ssize_t buflen,  smtp_session_t * session){
-    char * plain = unbase64((unsigned char *)buf, buflen);
+    char * plain = smtp_unbase64((unsigned char *)buf, buflen);
     char * id = plain;
     char * auth = strchr(plain, '\0') + 1;
     char * pass = strchr(auth, '\0') + 1;
@@ -243,7 +310,10 @@ static int smtp_process_input_line(char * buf, ssize_t buflen, char *prefix, cha
     int fd = session->session_writeback_fd;
 
     /* strip \r\n from input */
-    buf[buflen - 2] = '\0';
+    if ('\r' == buf[buflen - 2])
+        buf[buflen - 2] = '\0';
+    if ('\n' == buf[buflen - 1])
+        buf[buflen - 1] = '\0';
 
     /* Process Prefix checks */
     check = smtp_check_input(buf, prefix, delim, check_fkt, val);
@@ -318,6 +388,11 @@ static int smtp_check_mail(char * addr){
             if ((pos - addr) > 2){
                 return ARG_OK;
             }
+        } 
+        char * mx;
+        if (NULL != (mx = smtp_resolve_mx(pos+1))){
+            free(mx);
+            return ARG_OK;
         }
     }
     return ARG_BAD;
@@ -600,6 +675,7 @@ int smtp_process_input(char * msg, int msglen, smtp_session_t * session) {
                     char * user = smtp_extraxt_mbox_user(session->session_to);
                     mbox_push_mail(user, full_msg, 0);
                 } else {
+                    fwd_queue(session->session_data, session->session_from, session->session_to, 1);        
                 }
                 /* Send */
 
@@ -626,18 +702,18 @@ int smtp_process_input(char * msg, int msglen, smtp_session_t * session) {
             result = smtp_process_auth_line(msg, msglen, session);
             if ( CHECK_OK == result ) {
                 if (smtp_write_client_msg(session->session_writeback_fd, 235, SMTP_MSG_AUTH_OK, NULL) == SMTP_FAIL){
-                    session->session_state = HELO;
                     printf("Write Failed, Abort Session\n");
                     ERROR_SYS("Wrie to Client");
                     return CONN_QUIT;
                 }
+                session->session_state = HELO;
             } else {
                 if (smtp_write_client_msg(session->session_writeback_fd, 535, SMTP_MSG_AUTH_NOK, NULL) == SMTP_FAIL){
-                    session->session_state = EHLO;
                     printf("Write Failed, Abort Session\n");
                     ERROR_SYS("Wrie to Client");
                     return CONN_QUIT;
                 }
+                session->session_state = EHLO;
             }
             break;
     }

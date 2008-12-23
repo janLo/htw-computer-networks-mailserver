@@ -209,6 +209,7 @@ int conn_read_normal(mysocket_t * socket){
                 buf->readbuf_len, socket->socket_data);
 
         if (CONN_QUIT == status) {
+            printf("QUIT\n");
             conn_delete_socket_elem(socket->socket_fd);
         }
 
@@ -383,6 +384,8 @@ static inline int conn_connect_socket(char * host, char * port) {
     struct addrinfo hints;
     struct addrinfo* res;
 
+    printf("connecting to host: %s:%s\n", host, port);
+
     if((new = socket(PF_INET, SOCK_STREAM, 0)) == -1){
         ERROR_SYS("socket creation");
         return CONN_FAIL;
@@ -412,7 +415,7 @@ int conn_new_fwd_socket(char * host,  void * data){
     fwd_mail_t * data_ = (fwd_mail_t*) data;
 
     if ( CONN_FAIL == (new = conn_connect_socket(host, "25")) ) {
-        free(data);
+        fwd_free_mail(data);
         return CONN_FAIL;
     }
     if (CONN_FAIL == conn_queue_forward_socket(new, data_)) {

@@ -4,6 +4,7 @@ typedef struct smtp_session smtp_session_t;
 #define SMTP_FAIL -1
 
 
+char * smtp_resolve_mx(const char * host);
 smtp_session_t * smtp_create_session(int writeback_fd);
 int smtp_destroy_session(smtp_session_t * session);
 

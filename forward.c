@@ -1,10 +1,13 @@
 #include <string.h>
 #include <stdio.h>
+#include <netdb.h>
+
 
 #include "forward.h"
 #include "config.h"
 #include "connection.h"
 #include "fail.h"
+#include "smtp.h"
 
 #define SEND_MAXTRY 3
 
@@ -14,6 +17,7 @@ enum fwd_states {
     MAIL,
     RCPT,
     DATA,
+    SEND,
     QUIT
 };
 
@@ -30,8 +34,8 @@ struct fwd_mail {
     char *          fwd_to;
     enum fwd_states fwd_state; 
     int             fwd_trycount;
-    body_line_t *   fwd_body_head;
-    body_line_t *   fwd_body_pos;
+    int             fwd_failable;
+    body_line_t *   fwd_body;
 }; 
 
 
@@ -50,6 +54,10 @@ static inline char * fwd_send_host(char * addr) {
     buf = malloc(sizeof(char) * len);
     memcpy(buf, pos, len);
 
+    if (gethostbyname(buf) == NULL) {
+        free(buf);
+        buf = smtp_resolve_mx(pos);
+    }
     return buf;
 }
 
@@ -93,7 +101,7 @@ static inline void fwd_delete_body_lines(body_line_t * start){
     while (NULL != tmp1){
         tmp2 = tmp1;
         tmp1 = tmp1->line_next;
-        if(NULL != tmp2->line_data){
+        if(NULL != tmp2->line_data && tmp2->line_len != 0){
             free(tmp2->line_data);
         }
         free(tmp2);
@@ -105,6 +113,7 @@ static inline void fwd_delete_body_lines(body_line_t * start){
 int extract_status(char* buff){
     int ret = 0;
     char *pos;
+
     if((pos = strchr(buff, ' ')) != NULL){
         if ( 3 > (pos - buff))
             return 0;
@@ -112,6 +121,7 @@ int extract_status(char* buff){
         ret = atoi(buff);
         *pos = ' ';
     }
+
     return ret;
 }
 
@@ -145,6 +155,7 @@ static inline int check_cmd_reply(char * buf, int expected) {
        return  R_NOP;
    }
    if (expected == status) {
+       
        return R_OK;
    }
    if(status > 499 || status < 400){
@@ -153,7 +164,95 @@ static inline int check_cmd_reply(char * buf, int expected) {
    return R_RETRY;
 }
 
-int fwd_queue(body_line_t * body, char * from, char * to){
+static inline int fwd_write_body(int remote_fd, body_line_t * body) {
+    body_line_t * elem = body;
+    char buff[4069];
+
+    printf("write body\n");
+
+    while (NULL != elem) {
+        
+        if (NULL == elem->line_data || 0 == elem->line_len){
+            continue;
+        }
+
+        memcpy(buff, elem->line_data, elem->line_len);
+        buff[elem->line_len] = '\r';
+        buff[elem->line_len+1] = '\n';
+        buff[elem->line_len+2] = '\0';
+        
+        if ( conn_writeback(remote_fd, buff, elem->line_len + 2) <= 0){
+            ERROR_SYS("Writing on Remote Socket");
+            printf("Error while Writing on remote socket\n");
+            return FWD_FAIL;
+        }
+        printf("fwd_data: %s\n",buff);
+        
+        elem = elem->line_next;
+    }
+
+    if ( conn_writeback(remote_fd, ".\r\n", 3) <= 0){
+        ERROR_SYS("Writing on Remote Socket");
+        printf("Error while Writing on remote socket\n");
+        return FWD_FAIL;
+    }
+
+    return FWD_OK;
+}
+
+static inline void fwd_prepend_body_msg(char * msg, int len, fwd_mail_t * fwd) {
+    body_line_t * new_head   = malloc(sizeof(fwd_mail_t));
+    new_head->line_len       = len;
+    new_head->line_data      = malloc(sizeof(char) * len+1);
+    new_head->line_next      = fwd->fwd_body;
+    fwd->fwd_body            = new_head;
+    new_head->line_data[len] = '\0';
+    memcpy(new_head->line_data, msg, len);
+}
+
+static inline void fwd_build_and_prepend_body_msg(const char * msg1, const char * msg2, fwd_mail_t * fwd){
+    static char buff[1024];
+    int  len1, len2;
+
+    len1 = strlen(msg1);
+    len2 = strlen(msg2);
+    memcpy(buff,        msg1, len1);
+    memcpy(buff + len1, msg2, len2);
+    fwd_prepend_body_msg(buff, len1 + len2, fwd);
+}
+
+static inline void fwd_return_failture(fwd_mail_t * fwd, char * msg, int msglen) {
+    const char * myhost = "localhost";
+    int len1, len2;
+    char * mailaddr;
+
+    if (NULL != config_get_hostname()) {
+        myhost = config_get_hostname();
+    }
+
+    len1 = strlen(myhost);
+    len2 = strlen(FWD_POSTMASTER);
+
+    mailaddr = malloc(len1+len2+2);
+    memcpy(mailaddr, FWD_POSTMASTER, len2);
+    memcpy(mailaddr + len2 + 1, myhost, len1);
+    mailaddr[len2] = '@';
+    mailaddr[len2 + 1 + len1] = '\0';
+
+
+    fwd_prepend_body_msg(FWD_ERROR_REPLY2, strlen(FWD_ERROR_REPLY2), fwd);
+    fwd_prepend_body_msg(msg, msglen, fwd);
+    fwd_prepend_body_msg(FWD_ERROR_REPLY1, strlen(FWD_ERROR_REPLY1), fwd);
+    fwd_prepend_body_msg(FWD_ERROR_HEAD_SUBJ, strlen(FWD_ERROR_HEAD_SUBJ), fwd);
+
+    fwd_build_and_prepend_body_msg(FWD_ERROR_HEAD_TO,   fwd->fwd_from, fwd);
+    fwd_build_and_prepend_body_msg(FWD_ERROR_HEAD_FROM, myhost,        fwd);
+
+    fwd_queue(fwd->fwd_body, mailaddr, fwd->fwd_from, 0);
+    free(mailaddr);
+}
+
+int fwd_queue(body_line_t * body, char * from, char * to, int failable){
     int          new      = 0;
     char *       host     = fwd_send_host(to);
     fwd_mail_t * new_mail = malloc(sizeof(fwd_mail_t));
@@ -164,9 +263,10 @@ int fwd_queue(body_line_t * body, char * from, char * to){
     }
     
     new_mail->fwd_writeback_fd = new;
+    new_mail->fwd_state        = NEW;
     new_mail->fwd_trycount     = 0;
-    new_mail->fwd_body_head    = copy_body(body);
-    new_mail->fwd_body_pos     = new_mail->fwd_body_head;
+    new_mail->fwd_body         = copy_body(body);
+    new_mail->fwd_failable     = failable;
 
     len = strlen(from) +1;
     new_mail->fwd_from = malloc(sizeof(char) * len);
@@ -183,10 +283,13 @@ int fwd_queue(body_line_t * body, char * from, char * to){
 int fwd_process_input(char * msg, ssize_t msglen, fwd_mail_t * fwd){
     int status;
 
+    printf("input for fwd!\n");
+
     switch (fwd->fwd_state) {
         case NEW:
             status = check_cmd_reply(msg, 220);
-            if (R_OK != status || R_NOP != status){
+            if (R_OK != status && R_NOP != status){
+                printf("foo\n");
                 status = R_FAIL;
             } else {
                 const char * myhost = "localhost";
@@ -194,7 +297,7 @@ int fwd_process_input(char * msg, ssize_t msglen, fwd_mail_t * fwd){
                 if (NULL != config_get_hostname()) {
                     myhost = config_get_hostname();
                 }
-                if (FWD_FAIL == fwd_write_command(fwd->fwd_writeback_fd, "HELO", myhost)) {
+                if (FWD_FAIL == fwd_write_command(fwd->fwd_writeback_fd, "HELO ", myhost)) {
                     return CONN_QUIT;
                 }
                 fwd->fwd_trycount++;
@@ -249,14 +352,48 @@ int fwd_process_input(char * msg, ssize_t msglen, fwd_mail_t * fwd){
 
         case DATA:
             status = check_cmd_reply(msg, 354);
+            if (R_OK == status) {
+                fwd->fwd_trycount = 0;
+                if (FWD_FAIL == fwd_write_body(fwd->fwd_writeback_fd, fwd->fwd_body)) {
+                    return CONN_QUIT;
+                }
+                fwd->fwd_trycount++;
+                fwd->fwd_state = SEND;
+            }
+            if (R_RETRY == status){
+                fwd->fwd_state = RCPT;
+            } 
             break;
+
+        case SEND:
+            status = check_cmd_reply(msg, 250);
+            if (R_OK == status) {
+                fwd->fwd_trycount = 0;
+                if (FWD_FAIL == fwd_write_command(fwd->fwd_writeback_fd, "QUIT", "")) {
+                    return CONN_QUIT;
+                }
+                fwd->fwd_trycount++;
+                fwd->fwd_state = QUIT;
+            }
+            if (R_RETRY == status){
+                fwd->fwd_state = DATA;
+            }    
+            break;
+
         case QUIT:
+            status = check_cmd_reply(msg, 221);
+            if (R_OK == status) {
+                printf("quit successful\n");
+            }
             return CONN_QUIT;
             break;
 
     }
 
     if (R_FAIL == status) {
+        if (fwd->fwd_failable) {
+            fwd_return_failture(fwd, msg, msglen);
+        }
         /* handle error mail srtuff */
         fwd->fwd_state = QUIT;
         return CONN_QUIT;
@@ -265,12 +402,15 @@ int fwd_process_input(char * msg, ssize_t msglen, fwd_mail_t * fwd){
     return CONN_OK;
 }
 
+//! Frees all reources assigned to a forwarded mail
 int fwd_free_mail(fwd_mail_t * fwd) {
     if (NULL != fwd->fwd_to)
         free(fwd->fwd_to);
     if (NULL != fwd->fwd_from)
         free(fwd->fwd_from);
-    fwd_delete_body_lines(fwd->fwd_body_head);
+    if (NULL != fwd->fwd_body)
+        fwd_delete_body_lines(fwd->fwd_body);
     free(fwd);
+    printf("fwd freed\n");
     return FWD_OK;
 }
