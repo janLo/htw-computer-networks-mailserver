@@ -9,33 +9,52 @@
 #include "fail.h"
 #include "smtp.h"
 
+
+//! Max number of retrys of a command.
 #define SEND_MAXTRY 3
 
+//! States of a forwarding mail
+/*!
+ * This are the states, a forwarding mail can have before, during an after the 
+ * forward process.
+ */
 enum fwd_states {
-    NEW,
-    HELO,
-    MAIL,
-    RCPT,
-    DATA,
-    SEND,
-    QUIT
+    NEW,        /*!< This value tells that the connection to te target was created, but no datawas send or recived now. */
+    HELO,       /*!< The mail have this state after sending the HELO command and waiting for reply. */
+    MAIL,       /*!< The mail have this state after sending the MAIL FROM command and waiting for reply. */
+    RCPT,       /*!< The mail have this state after sending the RCPT TO command and waiting for reply. */
+    DATA,       /*!< The mail have this state after sending the DATA command and waiting for reply. */
+    SEND,       /*!< The mail have this state after sending the mail body lines accept. */
+    QUIT        /*!< This indicates, that the forward is over. */
 };
 
+//! Check results of the response code
+/*!
+ * This enum holds the return values of the Checking of the reply codes from the
+ * Server.
+ */
 enum response {
-    R_OK,
-    R_RETRY,
-    R_NOP,
-    R_FAIL
+    R_OK,       /*!< The reply Code was as expected. */
+    R_RETRY,    /*!< The server tells vou to retry the command. */
+    R_NOP,      /*!< The server has not yet submitted the final response. */
+    R_FAIL      /*!< The server tells you the sending failed for some reason. */
 };
 
+//! The stucture representing a forward mail
+/*!
+ * This structure holds all data, related to a forwarded mail. This includes the
+ * addresses, the body data, the connection fd and so on.
+ * It will be initialized during fwd_queue() and freed with fwd_free_mail().
+ * \sa fwd_queue(), fwd_free_mail()
+ */
 struct fwd_mail {
-    int             fwd_writeback_fd;
-    char *          fwd_from;
-    char *          fwd_to;
-    enum fwd_states fwd_state; 
-    int             fwd_trycount;
-    int             fwd_failable;
-    body_line_t *   fwd_body;
+    int             fwd_writeback_fd;   /*!< The fd of the connection. */
+    char *          fwd_from;           /*!< The from adress. */
+    char *          fwd_to;             /*!< The to adress. */
+    enum fwd_states fwd_state;          /*!< The state of the mail. */
+    int             fwd_trycount;       /*!< The count of trys of the current command. */
+    int             fwd_failable;       /*!< Flag to tell if a error report should be sended to sender on failture. */
+    body_line_t *   fwd_body;           /*!< The body of the mail. */
 }; 
 
 
