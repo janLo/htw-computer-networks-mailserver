@@ -674,10 +674,31 @@ int smtp_process_input(char * msg, int msglen, smtp_session_t * session) {
                 if (session->session_rcpt_local){
                     char * user = smtp_extraxt_mbox_user(session->session_to);
                     mbox_push_mail(user, full_msg, 0);
+                    if(smtp_write_client_msg(session->session_writeback_fd, 250, SMTP_MSG_DATA_ACK_LOCAL, NULL) == SMTP_FAIL){
+                        printf("Write Failed, Abort Session\n");
+                        ERROR_SYS("Wrie to Client");
+                        free(full_msg);
+                        return CONN_QUIT;
+                    }
                 } else {
-                    fwd_queue(session->session_data, session->session_from, session->session_to, 1);        
+                    if (FWD_OK == fwd_queue(session->session_data, session->session_from, session->session_to, 1)) {
+
+                        if(smtp_write_client_msg(session->session_writeback_fd, 250, SMTP_MSG_DATA_ACK, NULL) == SMTP_FAIL){
+                            printf("Write Failed, Abort Session\n");
+                            ERROR_SYS("Wrie to Client");
+                            free(full_msg);
+                            return CONN_QUIT;
+                        }
+                    } else {
+                        if(smtp_write_client_msg(session->session_writeback_fd, 250, SMTP_MSG_DATA_FAIL, NULL) == SMTP_FAIL){
+                            printf("Write Failed, Abort Session\n");
+                            ERROR_SYS("Wrie to Client");
+                            free(full_msg);
+                            return CONN_QUIT;
+                        }
+                    }
+
                 }
-                /* Send */
 
                 free(full_msg);
                 result = CHECK_RESET;

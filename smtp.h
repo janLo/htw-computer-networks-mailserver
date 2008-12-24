@@ -31,6 +31,7 @@ int smtp_process_input(char * msg, int msglen, smtp_session_t *);
 #define SMTP_MSG_RCPT           "%d RCPT %s seems to be OK\r\n"
 #define SMTP_MSG_DATA           "%d Waiting for Data, End with <CR><LF>.<CR><LF>\r\n"
 #define SMTP_MSG_DATA_ACK       "%d Message Accepted and forwarded\r\n"
+#define SMTP_MSG_DATA_ACK_LOCAL "%d Message Accepted and delivered\r\n"
 #define SMTP_MSG_DATA_FAIL      "%d Message Accepted but forward failed\r\n"
 #define SMTP_MSG_MEM            "%d Requested mail action aborted: exceeded storage allocation\r\n"
 #define SMTP_MSG_SEQ            "%d Bad Sequence of Commands\r\n"

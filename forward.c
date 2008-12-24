@@ -57,7 +57,17 @@ struct fwd_mail {
     body_line_t *   fwd_body;           /*!< The body of the mail. */
 }; 
 
-
+//! get thr host for sending
+/*! 
+ * This determines the host where the mail should be relayed to. This can be
+ * the Relayhost given as commandline option, the host after the @ char of the
+ * mail adress (if it is a host) or the dns mx entry of the name after the @
+ * sign.
+ * The host will be given as char sequence and musst be freed manual!
+ * \param addr The mail adress the host should determined for.
+ * \return The pointer to host as char sequence.
+ * \sa smtp_resolve_mx()
+ */
 static inline char * fwd_send_host(char * addr) {
     char *       buf = NULL;
     const char * pos = NULL;
@@ -80,6 +90,15 @@ static inline char * fwd_send_host(char * addr) {
     return buf;
 }
 
+//! Copys existing body lines
+/*! 
+ * This copys existing body lines into new memory and returns the pointer to the
+ * new head element. This is used to transfer body lines from the smtp to the
+ * forward module. In future releases (if anyday this will be performant and
+ * MULTITHREADED or better MULTIPROCESSED, this will be solved better.
+ * \param old The old body lines to copy.
+ * \return The head element of the new body lines.
+ */
 static inline body_line_t * copy_body(body_line_t* old){
     body_line_t * new  = NULL;
     body_line_t * tmp  = NULL;
@@ -113,6 +132,10 @@ static inline body_line_t * copy_body(body_line_t* old){
 }
 
 //! Deletes all body lines of a forward
+/*! 
+ * Delete the whole given body line list.
+ * \param start The head element of the List to delete.
+ */
 static inline void fwd_delete_body_lines(body_line_t * start){
     body_line_t * tmp1 = start;
     body_line_t * tmp2 = start;
@@ -128,7 +151,15 @@ static inline void fwd_delete_body_lines(body_line_t * start){
 }
 
 
-//! extracts the replycode from the string
+//! Extracts the replycode from the string
+/*!
+ * extracts the preply code of the server from a message. If this is a multi-line
+ * message and the current is not the last (reply code is delimeted by '-' and
+ * not by ' ') 0 will be returned. In any case the code can be extracted, the
+ * code will be returned. If not, 0 will also be returned.
+ * \param buff The message from the server as char sequence.
+ * \return The reply code ort 0 (see above).
+ */
 int extract_status(char* buff){
     int ret = 0;
     char *pos;
@@ -144,7 +175,15 @@ int extract_status(char* buff){
     return ret;
 }
 
-//! write a command
+//! Write a command
+/*! 
+ * This writes a command to the server. Internal thr command string will be
+ * concatenated with the argument and sended to the given fd.
+ * \param remote_fd The file descriptor to write the command.
+ * \param command   The command string as char sequence (null terminated).
+ * \param data      The argument of the command (also null terminated).
+ * \return FWD_OK on success, FWD_FAIL else.
+ */
 static inline int fwd_write_command(int remote_fd, const char *command, const char * data){
     size_t  len1 = strlen(command);
     size_t  len2 = strlen(data);
@@ -164,28 +203,52 @@ static inline int fwd_write_command(int remote_fd, const char *command, const ch
         free(buf);
         return FWD_FAIL;
     }
+   
     free(buf);
     return FWD_OK;
 }
 
+//! Check the reply of the server
+/*! 
+ * This checks rhe reply code of a server message. If thr code isas the given
+ * expected, R_OK will be returned. If the code cannot be extracted, R_NOP will
+ * returned. If the server indicates that the command will be successful on
+ * retry, R_RETRY will returnd and on a reply code indicates a fatal error
+ * R_FAIL will b returned.
+ * \param buf      The message from the server as char sequence.
+ * \param expected The expected reply code.
+ * \return One of the values of the response enum (see above).
+ */
 static inline int check_cmd_reply(char * buf, int expected) {
    int status = extract_status(buf);
+   
    if (0 == status) {
        return  R_NOP;
    }
+   
    if (expected == status) {
-       
        return R_OK;
    }
+
    if(status > 499 || status < 400){
        return R_FAIL;
    }
+   
    return R_RETRY;
 }
 
+//! Write the body to th server
+/*!
+ * This writes the whole list of given body lines to the server. The lines are
+ * sended in wingle write()s, each terminated with <cr><lf>. At the and a
+ * '.<cr><lf>' will be sended to indicate the end of the message.
+ * \param remote_fd The fd to write thr body.
+ * \param body      The head element of the body line list.
+ * \return FWD_OK on success, FWD_FAIL else.
+ */
 static inline int fwd_write_body(int remote_fd, body_line_t * body) {
     body_line_t * elem = body;
-    char buff[4069];
+    static char buff[4069];
 
     printf("write body\n");
 
@@ -219,6 +282,14 @@ static inline int fwd_write_body(int remote_fd, body_line_t * body) {
     return FWD_OK;
 }
 
+//! Prepend a body line element
+/*!
+ * This prepends a body line element on at the mail body head element of the
+ * given forward mail.
+ * \param msg The content for the element to prepend.
+ * \param len The length of the message without null terminator.
+ * \param fwd The structure of the forward mail.
+ */
 static inline void fwd_prepend_body_msg(char * msg, int len, fwd_mail_t * fwd) {
     body_line_t * new_head   = malloc(sizeof(fwd_mail_t));
     new_head->line_len       = len;
@@ -229,6 +300,16 @@ static inline void fwd_prepend_body_msg(char * msg, int len, fwd_mail_t * fwd) {
     memcpy(new_head->line_data, msg, len);
 }
 
+//! Builds a new body line element and prepend
+/*! 
+ * This builds a new body line element of two char sequences. The sequences
+ * will simple be concartenated. The new element will be prepended bevore the
+ * head element of the given forward structure.
+ * \param msg1 The first line part (null terminated).
+ * \param msg2 The second line part (null terminated).
+ * \param fwd  The structure of the forward mail.
+ * \sa fwd_prepend_body_msg()
+ */
 static inline void fwd_build_and_prepend_body_msg(const char * msg1, const char * msg2, fwd_mail_t * fwd){
     static char buff[1024];
     int  len1, len2;
@@ -240,6 +321,16 @@ static inline void fwd_build_and_prepend_body_msg(const char * msg1, const char 
     fwd_prepend_body_msg(buff, len1 + len2, fwd);
 }
 
+//! Build and send a error message 
+/*!
+ * This will be invoked if a forward has failed to send a error report back to
+ * the initial sender. It builds the error mail existing of the error message
+ * from the relay host and the original mail data.
+ * The error mail will then be forwarded to the sender.
+ * \param fwd     The failed forward message.
+ * \param msg     The error message from the server.
+ * \param msglen  The length of the error message (without null terminator).
+ */
 static inline void fwd_return_failture(fwd_mail_t * fwd, char * msg, int msglen) {
     const char * myhost = "localhost";
     int len1, len2;
@@ -252,7 +343,7 @@ static inline void fwd_return_failture(fwd_mail_t * fwd, char * msg, int msglen)
     len1 = strlen(myhost);
     len2 = strlen(FWD_POSTMASTER);
 
-    mailaddr = malloc(len1+len2+2);
+    mailaddr = malloc(sizeof(char) *(len1+len2+2));
     memcpy(mailaddr, FWD_POSTMASTER, len2);
     memcpy(mailaddr + len2 + 1, myhost, len1);
     mailaddr[len2] = '@';
@@ -271,6 +362,18 @@ static inline void fwd_return_failture(fwd_mail_t * fwd, char * msg, int msglen)
     free(mailaddr);
 }
 
+//! Queue a message to forward
+/*! 
+ * This is the start point for a forward message. In this function the
+ * structure will be builded and the connection to the relayhost created.
+ * The given data will all be copied, so it can be freed outside.
+ * \param body     The body line list of the mail.
+ * \param from     The mail adress of the sender.
+ * \param to       The adress of the recipient.
+ * \param failable A flag to tell the forwarder if a error mail should be sent
+ *                 back if thr forward fails.
+ * \return FWD_OK on success, FWD_FAIL else.
+ */
 int fwd_queue(body_line_t * body, char * from, char * to, int failable){
     int          new      = 0;
     char *       host     = fwd_send_host(to);
@@ -299,12 +402,28 @@ int fwd_queue(body_line_t * body, char * from, char * to, int failable){
     return FWD_OK;
 }
 
+//! Process inpot of a forward connection
+/*!
+ * This is the callack which is executed is any data is readable from a forward
+ * fd. It tracks the state of the forard message and processes the readed data
+ * right. It alo triggers the actions related to some data at a specivic state
+ * and manage the transitions between other states.
+ * It also handles the error if one will be raised in any action.
+ * \param msg    The readed data as char sequence.
+ * \param msglen The length of the data without null terminator.
+ * \param fwd    The structure of the forward mail.
+ * \return CONN_CONT if the connection should be alive abter this data, 
+ *         CONN_QUIT if the connection module schould close the socket and free
+ *         all related resources.
+ */
 int fwd_process_input(char * msg, ssize_t msglen, fwd_mail_t * fwd){
     int status;
 
     printf("input for fwd!\n");
 
     switch (fwd->fwd_state) {
+
+        /* New con, no data readed before, waiting for 220 greet, send HELO */
         case NEW:
             status = check_cmd_reply(msg, 220);
             if (R_OK != status && R_NOP != status){
@@ -324,6 +443,7 @@ int fwd_process_input(char * msg, ssize_t msglen, fwd_mail_t * fwd){
             }
             break;
 
+        /* Greet reded, HELO sended, wait for 250 reply, send MAIL FROM */
         case HELO:
             status = check_cmd_reply(msg, 250);
             if (R_OK == status) {
@@ -339,6 +459,7 @@ int fwd_process_input(char * msg, ssize_t msglen, fwd_mail_t * fwd){
             } 
             break;
 
+        /* MAIL FROM sended, wait for wait for 250 reply, send RCPT TO */
         case MAIL:
             status = check_cmd_reply(msg, 250);
             if (R_OK == status) {
@@ -354,6 +475,7 @@ int fwd_process_input(char * msg, ssize_t msglen, fwd_mail_t * fwd){
             } 
             break;
 
+        /* RCPT TO sended, wait for wait for 250 reply, send DATA */
         case RCPT:
             status = check_cmd_reply(msg, 250);
             if (R_OK == status) {
@@ -369,6 +491,7 @@ int fwd_process_input(char * msg, ssize_t msglen, fwd_mail_t * fwd){
             } 
             break;
 
+        /* DATA sended, wait for wait for 354  reply, send the body data */
         case DATA:
             status = check_cmd_reply(msg, 354);
             if (R_OK == status) {
@@ -384,6 +507,7 @@ int fwd_process_input(char * msg, ssize_t msglen, fwd_mail_t * fwd){
             } 
             break;
 
+        /* Body data dended, wait for wait for 250 reply, send QUIT */
         case SEND:
             status = check_cmd_reply(msg, 250);
             if (R_OK == status) {
@@ -399,6 +523,7 @@ int fwd_process_input(char * msg, ssize_t msglen, fwd_mail_t * fwd){
             }    
             break;
 
+        /* QUIT sended, wait for wait for 221 reply, return with CONN_QUIT */
         case QUIT:
             status = check_cmd_reply(msg, 221);
             if (R_OK == status) {
@@ -422,6 +547,13 @@ int fwd_process_input(char * msg, ssize_t msglen, fwd_mail_t * fwd){
 }
 
 //! Frees all reources assigned to a forwarded mail
+/*! 
+ * This is the cleanup callback for the connection module. it will be called if
+ * a connection will be cleaned up. Every heap data of the forward mail should
+ * be freed here.
+ * \param fwd The structure of the forward mail.
+ * \return FWD_OK in any vases for the moment.
+ */
 int fwd_free_mail(fwd_mail_t * fwd) {
     if (NULL != fwd->fwd_to)
         free(fwd->fwd_to);
