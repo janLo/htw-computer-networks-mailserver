@@ -504,12 +504,12 @@ static int smtp_process_body_data(char * buf, int buflen, smtp_session_t * sessi
     if (strncmp(buf, ".\r\n", 3) == 0){
         return CHECK_QUIT;
     }
-    if(buf[buflen] == '\n'){
-        buf[buflen] = '\0';
+    if(buf[buflen  - 1] == '\n'){
+        buf[buflen - 1] = '\0';
         buflen--;
     }
-    if(buf[buflen] == '\r'){
-        buf[buflen] = '\0';
+    if(buf[buflen  - 1] == '\r'){
+        buf[buflen - 1] = '\0';
         buflen--;
     }
 
