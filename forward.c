@@ -258,7 +258,7 @@ static inline int fwd_write_body(int remote_fd, body_line_t * body) {
             continue;
         }
 
-        if ( conn_writeback(remote_fd, elem->line_data, elem->line_len + 2) <= 0){
+        if ( conn_writeback(remote_fd, elem->line_data, elem->line_len ) <= 0){
             ERROR_SYS("Writing on Remote Socket");
             printf("Error while Writing on remote socket\n");
             return FWD_FAIL;
