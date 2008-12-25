@@ -222,11 +222,12 @@ static int smtp_check_input(char *buff,  char *prefix, char delim, int (*check_f
     char *arg;
     int check;
     int len = strlen(buff);
+    int plen = strlen(prefix);
 
     if(val != NULL){
         *val = NULL;
     }
-    if((arg = strchr(buff, delim)) == NULL){
+    if((arg = strchr(buff+plen, delim)) == NULL){
         printf("Delim-check failed: '%s' has no '%c'\n", buff, delim);
         return CHECK_DELIM;
     }
@@ -294,7 +295,8 @@ static int smtp_process_auth_line(char * buf, ssize_t buflen,  smtp_session_t * 
     int    ret = CHECK_ABRT;
     int    len = 0;
 
-    printf("PLAIN: %s .. %s .. %s\n", id, auth, pass);
+    printf("BASE64: '%s' (%d)\n", buf, buflen);
+    printf("PLAIN:  %s .. %s .. %s\n", id, auth, pass);
 
     if (config_has_user(auth) && config_verify_user_passwd(auth, pass)) {
         session->session_authenticated = 1;
@@ -612,13 +614,47 @@ int smtp_process_input(char * msg, int msglen, smtp_session_t * session) {
 
         /* wait for AUTH */
         case EHLO:
-            result = smtp_process_input_line(msg, msglen, "AUTH", '\0', NULL, NULL, session);
-            if ( CHECK_OK == result ) {
-                session->session_state = AUTH;
-                if(smtp_write_client_msg(session->session_writeback_fd, 334, SMTP_MSG_AUTH, session->session_host) == SMTP_FAIL){
-                    printf("Write Failed, Abort Session\n");
-                    ERROR_SYS("Wrie to Client");
-                    return CONN_QUIT;
+            if ((strlen("AUTH PLAIN") + 2) < msglen) {
+                char * tmp = NULL;
+                result = smtp_process_input_line(msg, msglen, "AUTH PLAIN", ' ', NULL, &tmp, session);
+                if ( CHECK_OK == result ) {
+                    int len = strlen(tmp);
+                    char * tmp2 = malloc(sizeof(char) * (len + 2));
+
+                    memcpy(tmp2, tmp, len);
+                    tmp2[len]   = '\r';
+                    tmp2[len+1] = '\n';
+                    tmp2[len+2] = '\0';
+
+                    if(CHECK_OK == smtp_process_auth_line(tmp2, strlen(tmp2), session)) {
+
+                        if (smtp_write_client_msg(session->session_writeback_fd, 235, SMTP_MSG_AUTH_OK, NULL) == SMTP_FAIL){
+                            printf("Write Failed, Abort Session\n");
+                            ERROR_SYS("Wrie to Client");
+                            return CONN_QUIT;
+                        }
+                        session->session_state = HELO;
+                    } else {
+                        if (smtp_write_client_msg(session->session_writeback_fd, 535, SMTP_MSG_AUTH_NOK, NULL) == SMTP_FAIL){
+                            printf("Write Failed, Abort Session\n");
+                            ERROR_SYS("Wrie to Client");
+                            return CONN_QUIT;
+                        }
+                    }
+
+                    free(tmp2);
+                }
+                if (NULL != tmp)
+                    free(tmp);
+            } else {
+                result = smtp_process_input_line(msg, msglen, "AUTH PLAIN", '\0', NULL, NULL, session);
+                if ( CHECK_OK == result ) {
+                    session->session_state = AUTH;
+                    if(smtp_write_client_msg(session->session_writeback_fd, 334, SMTP_MSG_AUTH, session->session_host) == SMTP_FAIL){
+                        printf("Write Failed, Abort Session\n");
+                        ERROR_SYS("Wrie to Client");
+                        return CONN_QUIT;
+                    }
                 }
             }
             break;

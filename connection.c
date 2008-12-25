@@ -102,8 +102,8 @@ static inline mysocket_list_t * conn_build_socket_elem(int fd, void * data,
 
     elem = malloc(sizeof(mysocket_list_t));
     
-    elem->list_next = NULL;
-    elem->list_socket.socket_data = data;
+    elem->list_next                       = NULL;
+    elem->list_socket.socket_data         = data;
     elem->list_socket.socket_read_handler = read_handler;
     elem->list_socket.socket_data_handler = data_handler;
     elem->list_socket.socket_data_deleter = data_deleter;
@@ -184,12 +184,6 @@ static inline readbuf_t * conn_read_normal_buff(int socket){
 
     len = read(socket,readbuf,BUF_SIZE-1);
     
-
-    ret = malloc(sizeof(readbuf_t));
-    ret->line_len  = 0;
-    ret->line_data = NULL;
-    ret->line_len  = len;
-
     if (len < 1){
         ret = malloc(sizeof(readbuf_t));
         ret->line_data = NULL;
@@ -199,6 +193,8 @@ static inline readbuf_t * conn_read_normal_buff(int socket){
     }
 
     readbuf[len] = '\0';
+    printf("\n######################\nreaded:\n%s\n######################\n", readbuf);
+
     next = strtok(readbuf, "\n");
     while (NULL != next){
         len = strlen(next) +1;
