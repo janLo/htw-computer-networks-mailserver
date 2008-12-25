@@ -2,7 +2,7 @@ EHLO localhost
 AUTH PLAIN
 amFuAGphbgB0ZXN0
 MAIL FROM:losinski@wh2.tu-dresden.de
-rcpt to: loiiisinski@wh2.tu-dresden.de
+rcpt to: losinski@wh2.tu-dresden.de
 DATA
 From: jan@localhost.de
 To: losinski@wh2.tu-dresden.de
