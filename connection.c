@@ -193,7 +193,6 @@ static inline readbuf_t * conn_read_normal_buff(int socket){
     }
 
     readbuf[len] = '\0';
-    printf("\n######################\nreaded:\n%s\n######################\n", readbuf);
 
     next = strtok(readbuf, "\n");
     while (NULL != next){
