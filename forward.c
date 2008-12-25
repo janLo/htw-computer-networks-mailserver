@@ -136,7 +136,7 @@ static inline body_line_t * copy_body(body_line_t* old){
  * Delete the whole given body line list.
  * \param start The head element of the List to delete.
  */
-static inline void fwd_delete_body_lines(body_line_t * start){
+inline void fwd_delete_body_lines(body_line_t * start){
     body_line_t * tmp1 = start;
     body_line_t * tmp2 = start;
 
@@ -248,7 +248,7 @@ static inline int check_cmd_reply(char * buf, int expected) {
  */
 static inline int fwd_write_body(int remote_fd, body_line_t * body) {
     body_line_t * elem = body;
-    static char buff[4069];
+   // static char buff[4069];
 
     printf("write body\n");
 
@@ -258,17 +258,12 @@ static inline int fwd_write_body(int remote_fd, body_line_t * body) {
             continue;
         }
 
-        memcpy(buff, elem->line_data, elem->line_len);
-        buff[elem->line_len] = '\r';
-        buff[elem->line_len+1] = '\n';
-        buff[elem->line_len+2] = '\0';
-        
-        if ( conn_writeback(remote_fd, buff, elem->line_len + 2) <= 0){
+        if ( conn_writeback(remote_fd, elem->line_data, elem->line_len + 2) <= 0){
             ERROR_SYS("Writing on Remote Socket");
             printf("Error while Writing on remote socket\n");
             return FWD_FAIL;
         }
-        printf("fwd_data: %s\n",buff);
+        printf("fwd_data: %s\n",elem->line_data);
         
         elem = elem->line_next;
     }

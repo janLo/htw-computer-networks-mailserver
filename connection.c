@@ -13,7 +13,7 @@
 #include "smtp.h"
 #include "forward.h"
 
-#define BUF_SIZE 4096 
+#define BUF_SIZE 4096*4
 
 typedef struct mysocket mysocket_t;
 typedef void* (* data_init_t   )(int socket);
@@ -36,10 +36,11 @@ typedef struct mysocket_list {
     struct mysocket_list * list_next;
 } mysocket_list_t;
 
-typedef struct readbuf {
-    ssize_t readbuf_len;
-    char *  readbuf_data;
-} readbuf_t;
+//! The readed data
+/*!
+ * Former a own struct, now a alias for body_line_t.
+ */
+typedef  body_line_t readbuf_t;
 
 mysocket_list_t * socketlist_head = NULL; //! Head of the socket list
 char  readbuf[BUF_SIZE];
@@ -176,49 +177,86 @@ static inline int conn_delete_socket_elem(int fd){
 static inline readbuf_t * conn_read_normal_buff(int socket){
     ssize_t len;
     char * buf;
-    readbuf_t * ret = malloc(sizeof(readbuf_t));
-
-    ret->readbuf_len  = 0;
-    ret->readbuf_data = NULL;
-
-    len = read(socket,readbuf,BUF_SIZE);
+    char * next;
+    readbuf_t * ret = NULL;
+    readbuf_t * tmp = NULL;
     
-    ret->readbuf_len  = len;
+
+    len = read(socket,readbuf,BUF_SIZE-1);
+    
+
+    ret = malloc(sizeof(readbuf_t));
+    ret->line_len  = 0;
+    ret->line_data = NULL;
+    ret->line_len  = len;
 
     if (len < 1){
+        ret = malloc(sizeof(readbuf_t));
+        ret->line_data = NULL;
+        ret->line_len  = len;
+        ret->line_next = NULL;
         return ret;
     }
 
-    buf = malloc(sizeof(char) * (len +1));
-    buf[len] = '\0';
-    memcpy(buf, readbuf, len);
-    ret->readbuf_data = buf;
+    readbuf[len] = '\0';
+    next = strtok(readbuf, "\n");
+    while (NULL != next){
+        len = strlen(next) +1;
+        buf = malloc(sizeof(char) * (len + 1));
+        memcpy(buf, next, len);
+        buf[len] = '\0';
+        buf[len-1] = '\n';
+        if(NULL == tmp){
+            tmp = malloc(sizeof(readbuf_t));
+            ret = tmp;
+        } else {
+            tmp->line_next = malloc(sizeof(readbuf_t));
+            tmp = tmp->line_next;
+        }
 
+        tmp->line_len  = len;
+        tmp->line_next = NULL;
+        tmp->line_data = buf;
+
+        printf("%s\n", tmp->line_data);
+        next = strtok(NULL, "\n");
+    }
+        
     return ret;
 }
 
 //! Read some smtp data
 int conn_read_normal(mysocket_t * socket){
     readbuf_t * buf = conn_read_normal_buff(socket->socket_fd);
-    int status;
+    readbuf_t * tmp = NULL;
+    int status      = CONN_CONT;;
 
-    if (0 < buf->readbuf_len){
+    if (0 < buf->line_len){
 
-        printf("process: %s\n", buf->readbuf_data);
-        status = socket->socket_data_handler(buf->readbuf_data, 
-                buf->readbuf_len, socket->socket_data);
+        while (NULL != buf) {
+            tmp = buf;
+            buf = buf->line_next;
 
-        if (CONN_QUIT == status) {
-            printf("QUIT\n");
-            conn_delete_socket_elem(socket->socket_fd);
+
+            if (CONN_CONT == status) {
+                printf("process: %s\n", tmp->line_data);
+                status = socket->socket_data_handler(tmp->line_data, 
+                        tmp->line_len, socket->socket_data);
+            }
+
+            if (CONN_QUIT == status) {
+                printf("QUIT\n");
+                conn_delete_socket_elem(socket->socket_fd);
+            }
+
+            free(tmp->line_data);
+            free(tmp);
         }
-
-        free(buf->readbuf_data);
     } else {
-        printf("%i\n", buf->readbuf_len);
+        printf("%i\n", buf->line_len);
         conn_delete_socket_elem(socket->socket_fd);
+        free(buf);
     }
-    free(buf);
     return 0;
 }
 

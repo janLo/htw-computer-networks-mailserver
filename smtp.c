@@ -36,16 +36,20 @@ enum arg_states {
     ARG_BAD
 };
 
+//! States of a SMTP session
+/*!
+ * This enum contain all states a smtp session can have. It is used to
+ * coordinate thr actions with the input.
+ */
 enum session_states {
-    NEW,
-    HELO,
-    EHLO,
-    FROM,
-    RCPT,
-    DATA,
-    SEND,
-    QUIT,
-    AUTH,
+    NEW,        //!< A new session, no (valid) input recived, greet sended.
+    HELO,       //!< A session after HELO (if it is a ESMTP session, a valid auth has already happened here), waiting for MAIL FROM.
+    EHLO,       //!< A session after EHLO (waiting for AUTH).
+    FROM,       //!< A session after MAIL FROM, waiting for RCPT TO.
+    RCPT,       //!< A session after RCPT TO, waiting for DATA.
+    DATA,       //!< A session after DATA, waiting for the data block, terminated with '<cr><lf>.<cr><lf>'.
+    AUTH,       //!< A session waiting for auth credentials.
+    QUIT,       //!< A terminated session.
 };
 
 enum smtp_types {
@@ -305,6 +309,7 @@ static int smtp_process_auth_line(char * buf, ssize_t buflen,  smtp_session_t * 
     return ret;
 }
 
+
 static int smtp_process_input_line(char * buf, ssize_t buflen, char *prefix, char delim, int (*check_fkt)(char *), char **val, smtp_session_t * session){
     int check;
     int fd = session->session_writeback_fd;
@@ -363,6 +368,7 @@ static int smtp_process_input_line(char * buf, ssize_t buflen, char *prefix, cha
     return CHECK_ABRT;
 }
 
+//! Extracts the mbox user from a mail adress
 static inline char * smtp_extraxt_mbox_user(const char * addr) {
     int len = strchr(addr, '@') - addr;
     char * buf = malloc(sizeof(char) * len +1);
@@ -382,7 +388,21 @@ static int smtp_check_addr(char * addr){
 
 //! check basical if a given sequence is a mail address
 static int smtp_check_mail(char * addr){
-    char *pos = strchr(addr, '@');
+    char *pos;
+    int len;
+    int i;
+
+    /* strip < > */
+    if (addr[0] == '<') {
+        len = strlen(addr);
+        for (i = 0; i < len - 2; i++) {
+            addr[i] = addr[i+1];
+        }
+        addr[len-2] = '\0';
+    }
+
+        
+    pos = strchr(addr, '@');
     if(pos != NULL){
         if (smtp_check_addr(pos+1) == ARG_OK){
             if ((pos - addr) > 2){
@@ -391,6 +411,7 @@ static int smtp_check_mail(char * addr){
         } 
         char * mx;
         if (NULL != (mx = smtp_resolve_mx(pos+1))){
+            perror("");
             free(mx);
             return ARG_OK;
         }
@@ -435,7 +456,8 @@ static void smtp_delete_body_lines(smtp_session_t * session){
     while (NULL != tmp1){
         tmp2 = tmp1;
         tmp1 = tmp1->line_next;
-        free(tmp2->line_data);
+        if (NULL != tmp2->line_data && 0 != tmp2->line_len)
+            free(tmp2->line_data);
         free(tmp2);
     }
     session->session_data = NULL;
@@ -504,15 +526,6 @@ static int smtp_process_body_data(char * buf, int buflen, smtp_session_t * sessi
     if (strncmp(buf, ".\r\n", 3) == 0){
         return CHECK_QUIT;
     }
-    if(buf[buflen  - 1] == '\n'){
-        buf[buflen - 1] = '\0';
-        buflen--;
-    }
-    if(buf[buflen  - 1] == '\r'){
-        buf[buflen - 1] = '\0';
-        buflen--;
-    }
-
 
     if (NULL == session->session_data) {
         /* TODO add recive headers here! */
@@ -539,14 +552,15 @@ smtp_session_t * smtp_create_session(int writeback_fd) {
     }
 
     new = malloc(sizeof(smtp_session_t));
-    new->session_writeback_fd = writeback_fd;
-    new->session_type = SMTP;
-    new->session_state = NEW;
-    new->session_user = NULL;
+    new->session_writeback_fd  = writeback_fd;
+    new->session_type          = SMTP;
+    new->session_state         = NEW;
+    new->session_user          = NULL;
+    new->session_data          = NULL;
     new->session_authenticated = 0;
-    new->session_from = 0;
-    new->session_to = NULL;
-    new->session_rcpt_local = 0;
+    new->session_from          = 0;
+    new->session_to            = NULL;
+    new->session_rcpt_local    = 0;
 
     return new;
 }
@@ -572,7 +586,7 @@ int smtp_process_input(char * msg, int msglen, smtp_session_t * session) {
         case NEW:
             ehlo = smtp_check_prefix(msg, "EHLO"); 
             if (CHECK_OK == ehlo) {
-                result = smtp_process_input_line(msg, msglen, "EHLO", ' ', smtp_check_addr, &(session->session_host), session);
+                result = smtp_process_input_line(msg, msglen, "EHLO", ' ', NULL, &(session->session_host), session);
                 if ( CHECK_OK == result ) {
                     session->session_state = EHLO;
                     session->session_type  = ESMTP;
@@ -584,7 +598,7 @@ int smtp_process_input(char * msg, int msglen, smtp_session_t * session) {
                     }
                 }
             } else {
-                result = smtp_process_input_line(msg, msglen, "HELO", ' ', smtp_check_addr, &(session->session_host), session);
+                result = smtp_process_input_line(msg, msglen, "HELO", ' ', NULL, &(session->session_host), session);
                 if ( CHECK_OK == result ) {
                     session->session_state = HELO;
                     if( smtp_write_client_msg(session->session_writeback_fd, 250, SMTP_MSG_HELLO, session->session_host) == SMTP_FAIL){
@@ -707,10 +721,6 @@ int smtp_process_input(char * msg, int msglen, smtp_session_t * session) {
                 /* EOM */
                 result = CHECK_QUIT;
             }
-            break;
-
-        /* obsolete state */
-        case SEND:
             break;
 
         /* quit state, session should never reach this */

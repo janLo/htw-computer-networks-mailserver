@@ -23,4 +23,5 @@ struct body_line {
 int fwd_queue(body_line_t * body, char * from, char * to, int failable);
 int fwd_process_input(char * msg, ssize_t msglen, fwd_mail_t * fwd);
 int fwd_free_mail(fwd_mail_t * fwd);
+inline void fwd_delete_body_lines(body_line_t * start);
 
