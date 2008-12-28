@@ -11,6 +11,7 @@
 #include "connection.h"
 #include "config.h"
 #include "smtp.h"
+#include "pop3.h"
 #include "forward.h"
 
 #define BUF_SIZE 4096*4
@@ -320,7 +321,8 @@ int conn_init(){
 
     /* Setup POP3 */
     fd = conn_setup_listen(config_get_pop_port());
-    elem->list_next = conn_build_socket_elem(fd, NULL, conn_accept_normal_client, NULL, NULL);
+    elem->list_next = conn_build_socket_elem(fd, pop3_create_normal_session, conn_accept_normal_client, 
+	(data_handler_t)pop3_process_input, (data_deleter_t)pop3_destroy_session);
     elem = elem->list_next;
     if (NULL == elem) 
         return CONN_FAIL;
