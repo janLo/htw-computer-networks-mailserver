@@ -1,3 +1,12 @@
+/* pop3.c
+ *
+ * The pop3 module for the "Beleg Rechnernetze/Kommunikationssysteme".
+ *
+ * author: Jan Losinski
+ * date: 16.12.08
+ */
+
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>

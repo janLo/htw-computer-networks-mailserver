@@ -1,3 +1,12 @@
+/* forward.c
+ *
+ * The forward module for the "Beleg Rechnernetze/Kommunikationssysteme".
+ *
+ * author: Jan Losinski
+ * date: 25.12.08
+ */
+
+
 #include <string.h>
 #include <stdio.h>
 #include <netdb.h>

@@ -1,3 +1,12 @@
+/* smtp.c
+ *
+ * The smtp module for the "Beleg Rechnernetze/Kommunikationssysteme".
+ *
+ * author: Jan Losinski
+ * date: 16.12.08
+ */
+
+
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>

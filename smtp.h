@@ -1,3 +1,12 @@
+/* smtp.h
+ *
+ * The smtp module for the "Beleg Rechnernetze/Kommunikationssysteme".
+ *
+ * author: Jan Losinski
+ * date: 28.12.08
+ */
+
+
 typedef struct smtp_session smtp_session_t;
 
 #define SMTP_OK 0

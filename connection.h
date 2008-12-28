@@ -1,3 +1,12 @@
+/* connection.c
+ *
+ * The connection module for the "Beleg Rechnernetze/Kommunikationssysteme".
+ *
+ * author: Jan Losinski
+ * date: 28.12.08
+ */
+
+
 #include <stdlib.h>
 
 #define CONN_FAIL  -1

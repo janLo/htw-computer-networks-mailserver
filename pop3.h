@@ -1,3 +1,12 @@
+/* pop3.h
+ *
+ * The pop3 module for the "Beleg Rechnernetze/Kommunikationssysteme".
+ *
+ * author: Jan Losinski
+ * date: 28.12.08
+ */
+
+
 
 
 #define POP3_MSG_GREET		"+OK %s POP3-Server, Enter user\r\n" 	// Hostname

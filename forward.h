@@ -1,3 +1,12 @@
+/* forward.h
+ *
+ * The forward module for the "Beleg Rechnernetze/Kommunikationssysteme".
+ *
+ * author: Jan Losinski
+ * date: 28.12.08
+ */
+
+
 #include <stdlib.h>
 
 #define FWD_FAIL -1
