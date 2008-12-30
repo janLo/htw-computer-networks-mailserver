@@ -27,7 +27,7 @@ typedef struct user user_t;
 struct user {
    char * user_name;
    char * user_password;
-   int  user_mboxlock;
+   int    user_mboxlock;
 };
 
 
@@ -47,7 +47,7 @@ userlist_t * userlist_head = NULL; //! The head of the userlist
 
 char * smtp_port = "2025";        //! The SMTP Port
 char * pop_port  = "20465";       //! The POP3 Port
-char * pops_port = "20993";       //! The PIP3S Port
+char * pops_port = "20993";       //! The POP3S Port
 
 char * hostname  = NULL;        //! The hostname of the server
 
