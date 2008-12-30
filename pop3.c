@@ -56,7 +56,7 @@ static int pop3_write_client_msg(conn_writeback_t write_fkt, int write_fd, char 
     size_t len;
 
     /* TODO macht seltsamme sachen */
-    len = snprintf(buf, 2048, msg, arglist);
+    len = vsnprintf(buf, 2048, msg, arglist);
 
     if(write_fkt(write_fd, buf, len) <= 0)
 	return POP3_FAIL;
