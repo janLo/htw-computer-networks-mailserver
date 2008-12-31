@@ -17,6 +17,7 @@
 #include "pop3.h"
 #include "mailbox.h"
 
+
 enum pop3_states {
    NEW,
    AUTH,
@@ -39,13 +40,23 @@ struct pop3_session {
    mailbox_t *      session_mailbox;
 };
 
+typedef int (* pop3_command_fkt_t)(pop3_session_t*, int);
 
+struct transact_command {
+    char *             command_string;
+    pop3_command_fkt_t command_fkt;
+};
 
-
-
-
-
-
+static const struct transact_command commands[] = {
+    {"STAT", NULL},
+    {"LIST", NULL},
+    {"RETR", NULL},
+    {"DELE", NULL},
+    {"NOOP", NULL},
+    {"RSET", NULL},
+    {"QUIT", NULL},
+    {NULL,   NULL}
+};
 
 
 
@@ -55,7 +66,6 @@ static int pop3_write_client_msg(conn_writeback_t write_fkt, int write_fd, char 
     va_start(arglist, msg);
     size_t len;
 
-    /* TODO macht seltsamme sachen */
     len = vsnprintf(buf, 2048, msg, arglist);
 
     if(write_fkt(write_fd, buf, len) <= 0)
@@ -86,43 +96,6 @@ static inline int pop3_test_cmd(const char * line, const char * expected) {
     if ( 0 == strncmp(line, expected, len) )
         return POP3_OK;
     return POP3_FAIL;
-}
-
-
-
-pop3_session_t * pop3_create_session(int writeback_socket, int ssl){
-    pop3_session_t * new = NULL;
-    conn_writeback_t fkt = ( ssl ? conn_writeback_ssl : conn_writeback);
-    const char * myhost = "localhost";
-
-    if (NULL != config_get_hostname()) {
-	myhost = config_get_hostname();
-    }
-
-    //GREET
-    if (POP3_FAIL == pop3_write_client_msg(fkt, writeback_socket, POP3_MSG_GREET, myhost)){
-	printf("Writeback fail on pop3 init");
-        return new;
-    }
-
-    new = malloc(sizeof(pop3_session_t)); 
-
-    new->session_writeback_fd  = writeback_socket;
-    new->session_writeback_fkt = fkt;
-    new->session_state         = NEW;
-    new->session_authorized    = 0;
-    new->session_user          = NULL;
-    new->session_mailbox       = NULL;
-
-    return new;
-}
-
-pop3_session_t * pop3_create_normal_session(int writeback_socket){
-    return pop3_create_session(writeback_socket, 0);
-}
-
-pop3_session_t * pop3_create_ssl_session(int writeback_soket) {
-    return NULL;
 }
 
 static inline int pop3_strip_newlines(char * orig, int origlen) {
@@ -173,9 +146,61 @@ static inline int pop3_init_mbox(pop3_session_t * session){
     return CHECK_OK;
 }
 
+static int pop3_process_transaction(char * msg, ssize_t msglen, pop3_session_t * session) {
+    int i;
+    int arg;
+    for (i = 0; NULL != commands[i].command_string; i++){
+        if ( CHECK_OK == pop3_test_cmd(msg, commands[i].command_string)){
+            printf("COMMAND: %s\n", commands[i].command_string);
+            if (NULL != commands[i].command_fkt){
+                /* extract arg */
+                commands[i].command_fkt(session, arg);
+                /* return value - session mngmnt */
+            }
+            break;
+        }
+    }
+    return CONN_CONT;
+}
 
+
+pop3_session_t * pop3_create_session(int writeback_socket, int ssl){
+    pop3_session_t * new = NULL;
+    conn_writeback_t fkt = ( ssl ? conn_writeback_ssl : conn_writeback);
+    const char * myhost = "localhost";
+
+    if (NULL != config_get_hostname()) {
+	myhost = config_get_hostname();
+    }
+
+    //GREET
+    if (POP3_FAIL == pop3_write_client_msg(fkt, writeback_socket, POP3_MSG_GREET, myhost)){
+	printf("Writeback fail on pop3 init");
+        return new;
+    }
+
+    new = malloc(sizeof(pop3_session_t)); 
+
+    new->session_writeback_fd  = writeback_socket;
+    new->session_writeback_fkt = fkt;
+    new->session_state         = NEW;
+    new->session_authorized    = 0;
+    new->session_user          = NULL;
+    new->session_mailbox       = NULL;
+
+    return new;
+}
+
+pop3_session_t * pop3_create_normal_session(int writeback_socket){
+    return pop3_create_session(writeback_socket, 0);
+}
+
+pop3_session_t * pop3_create_ssl_session(int writeback_soket) {
+    return NULL;
+}
 
 int pop3_process_input(char * msg, ssize_t msglen, pop3_session_t * session){
+    int ret = CONN_CONT;
     switch (session->session_state) {
         case NEW:
             if ( CHECK_OK == pop3_check_user(msg, msglen, session) ) {
@@ -199,12 +224,13 @@ int pop3_process_input(char * msg, ssize_t msglen, pop3_session_t * session){
             }
             break;
         case START:
+            ret =  pop3_process_transaction(msg, msglen, session);
             break;
         case QUIT:
             return CONN_QUIT;
             break;
     }
-    return 0;
+    return ret;
 }
 
 int pop3_destroy_session(pop3_session_t * session){
