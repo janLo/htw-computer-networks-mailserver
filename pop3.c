@@ -17,10 +17,14 @@
 #include "pop3.h"
 #include "mailbox.h"
 
+/*!
+ * \defgroup pop3 POP3 Module
+ * @{
+ */
 
 //! The states of a pop3 session
 /*!
- * Used to trac the state of a pop3 sesseion.
+ * Used to track the state of a pop3 sesseion.
  */
 enum pop3_states {
    AUTH,                //!< Auth state, not authorized jet.
@@ -40,6 +44,10 @@ enum pop3_checks {
 
 
 //! Representation of a POP3 session
+/*!
+ * This struct represents a pop3 session. It holds all the assigned values.
+ * It will be created after the \p accept() and destroyed before \p close().
+ */
 struct pop3_session {
    int              session_writeback_fd;       //!< The fd to write data back to the client.
    conn_writeback_t session_writeback_fkt;      //!< The function used by the connection module to write data to the client.
@@ -65,6 +73,10 @@ static int pop3_rset_mailbox(pop3_session_t * session, char * arg);
 static int pop3_noop_mailbox(pop3_session_t * session, char * arg);
 
 //! A Pop3 command
+/*!
+ * This structure holds a pop3 command, the assigned callback and a flag if a
+ * argument should be extracted.
+ */
 typedef struct pop3_command {
     char *             command_string;          //!< The command string.
     pop3_command_fkt_t command_fkt;             //!< The function to procett the command.
@@ -72,6 +84,9 @@ typedef struct pop3_command {
 } pop3_command_t;
 
 //! Commands of the transaction state.
+/*! 
+ * This are all commands available in the transaction state.
+ */
 static const pop3_command_t transact_commands[] = {
     {"STAT", pop3_stat_mailbox, 0},
     {"LIST", pop3_list_mailbox ,1},
@@ -85,14 +100,30 @@ static const pop3_command_t transact_commands[] = {
 };
 
 //! Commands of the Auth state.
+/*!
+ * This are all commands available in the auth state.
+ */
 static const pop3_command_t auth_commands[] = {
     {"USER", pop3_check_user,   1},
     {"PASS", pop3_check_passwd, 1},
     {"QUIT", pop3_quit_session, 0},
-    {NULL,   NULL,                                   0}
+    {NULL,   NULL,              0}
 };
 
-
+//! Write a message to a client
+/*! 
+ * This writes a message to the client assigned with the \p write_fd. The message
+ * itself is a \p printf format string.
+ * The values for the placeholders can be given as a arglist after the format
+ * string.
+ * The message is written with the \p write_fkt to enable transparent plain/ssl
+ * writing.
+ * \param write_fkt The function to write data to the client.
+ * \param write_fd  The filedescriptor to the client.
+ * \param msg       The format string of the message.
+ * \param ...       The values of the msg placeholders.
+ * \return POP3_OK on success, POP3_FAIL else.
+ */
 static int pop3_write_client_msg(conn_writeback_t write_fkt, int write_fd, char * msg, ...){
     static char buf[2048];
     va_list arglist;
@@ -107,6 +138,15 @@ static int pop3_write_client_msg(conn_writeback_t write_fkt, int write_fd, char 
     return POP3_OK;
 }
 
+//! Write message terminator to the client
+/*! 
+ * This writes a message terminator:
+ * \code<cr><lf>.<cr><lf>\endcode 
+ * to the client. The data is written with the write_fkt to enable transparent
+ * plain/ssl writing. If the \p start_nl flag is set to 0, the \p \<cr>\<lf> at the
+ * start will not be written.
+ *
+ */
 static inline int pop3_write_client_term(conn_writeback_t write_fkt, int write_fd, int start_nl) {
     char * term = (start_nl ? "\r\n.\r\n" : ".\r\n");
     int    len  = (start_nl ? 5 : 3);
@@ -117,7 +157,15 @@ static inline int pop3_write_client_term(conn_writeback_t write_fkt, int write_f
     return POP3_OK;
 }
 
-
+//! Check if a line starts with the given command.
+/*!
+ * This checks if the given \p line starts with the \p expected command. The
+ * strings are compared case insensitive (\p line will be converted to
+ * uppercase).
+ * \param line     The line from the client.
+ * \param expected The expected command.
+ * \return POP3_OK if the command is the expected, POP3_FAIL else.
+ */
 static inline int pop3_test_cmd(char * line, const char * expected) {
     size_t len = strlen(expected);
 
@@ -128,6 +176,14 @@ static inline int pop3_test_cmd(char * line, const char * expected) {
     return POP3_FAIL;
 }
 
+//! Strips the tailing newlines
+/*!
+ * This strips the tailing \p \<cr>\<lf> from a fiven message by changig the
+ * chars to \p \\0.
+ * \param orig    The buffer with the line.
+ * \param origlen The length of the line.
+ * \return the new length of the line.
+ */
 static inline int pop3_strip_newlines(char * orig, int origlen) {
     int l = origlen;
 
@@ -144,6 +200,14 @@ static inline int pop3_strip_newlines(char * orig, int origlen) {
     return l;
 }
 
+//! Init a session mailbox
+/*! 
+ * This initialize a user mailbox for session usage. The mailbox for the user
+ * will also be locked. If another session referes to the users mailbox, the
+ * operation will fail.
+ * \param session The session struct.
+ * \return CHECK_OK on success, CHECK_FAIL else.
+ */
 static inline int pop3_init_mbox(pop3_session_t * session){
     if (config_user_locked(session->session_user)) {
         return CHECK_FAIL;
@@ -156,7 +220,20 @@ static inline int pop3_init_mbox(pop3_session_t * session){
 }
 
 
+/** \name Functions: Auth callbacks
+ * @{ */
 
+//! Check a password
+/*!
+ * This checks a user password if it matches with the password for the session
+ * user in the user table read on app start.
+ * It also trys to open and lock the users mailbox, set the auth flag of the
+ * session and switch it to the transaction state.
+ * \param session The current session.
+ * \param passwd  The password arg of the PASS command
+ * \return CHECK_OK on success, CHECK_FAIL on failture, CHECK_QUIT if the
+ *         mailbox cannot be locked.
+ */
 static int pop3_check_passwd(pop3_session_t * session, char * passwd){
 
     if (NULL == session->session_user) {
@@ -179,6 +256,14 @@ static int pop3_check_passwd(pop3_session_t * session, char * passwd){
     return CHECK_FAIL;
 }
 
+//! Check a user
+/*!
+ * This checks if a given user exist in the user table. If it exist, the user
+ * will be added to the session struct.
+ * \param session The current session.
+ * \param usr     The user argument of the USER command.
+ * \return CHECK_OK on success, CHECK_FAIL else.
+ */
 static int pop3_check_user(pop3_session_t * session, char * usr){
     char * buf;
     int l;
@@ -197,6 +282,21 @@ static int pop3_check_user(pop3_session_t * session, char * usr){
     return CHECK_FAIL;
 }
 
+/** @} */
+
+
+/** \name Functions: Transtaction callbacks
+ * @{ */
+
+//! Quit a user session
+/*!
+ * This is used to process the quit command. It closes the users mailbox with
+ * the close flag set to one to delete all marked mails.
+ * It also set the state to the quit state and releases the mailbox lock.
+ * \param session The current session.
+ * \param foo     Not used.
+ * \return CHECK_QUIT in any case.
+ */
 static int pop3_quit_session(pop3_session_t * session, char * foo) {
     if (START == session->session_state) {
         if ( NULL != session->session_mailbox ) {
@@ -210,6 +310,14 @@ static int pop3_quit_session(pop3_session_t * session, char * foo) {
     return CHECK_QUIT;
 }
 
+//! Stat a mailbox
+/*!
+ * This is used to process the stat command in a session. The stat of the
+ * mailbox will be printed.
+ * \param session The current session.
+ * \param arg     Not used.
+ * \return CHECK_OK on success, CHECK_FAIL else.
+ */
 static int pop3_stat_mailbox(pop3_session_t * session, char * arg) {
     if (NULL == session->session_mailbox) {
         return CHECK_FAIL;
@@ -218,6 +326,16 @@ static int pop3_stat_mailbox(pop3_session_t * session, char * arg) {
     return CHECK_OK;
 }
 
+//! List the details of a mail or mailbox
+/*! 
+ * This is used to process the LIST pop3 command. Without any argument it lists
+ * all contents of the mailbox with number and size. If a positive number is
+ * given which refers to a not delete marked mail in the mailbox, its number and
+ * size will be printed.
+ * \param session The current session.
+ * \param arg     Optional the number of the requestet mail as char sequence.
+ * \return CHECK_OK on success, CHECK_FAIL else.
+ */
 static int pop3_list_mailbox(pop3_session_t * session, char * arg) {
     int i;
     int l = strlen(arg);
@@ -248,6 +366,15 @@ static int pop3_list_mailbox(pop3_session_t * session, char * arg) {
     return CHECK_OK;
 }
 
+//! List uid of mails in the mailbox
+/*! 
+ * This lists the uids of the mails in the mailbox. It works similar to
+ * pop3_list_mailbox(). 
+ * \param session The current session.
+ * \param arg     Optional the number of the requestet mail as char sequence.
+ * \return CHECK_OK on success, CHECK_FAIL else.
+ * \sa pop3_list_mailbox()
+ */
 static int pop3_uidl_mailbox(pop3_session_t * session, char * arg) {
     int    i;
     int    l = strlen(arg);
@@ -283,6 +410,13 @@ static int pop3_uidl_mailbox(pop3_session_t * session, char * arg) {
     return CHECK_OK;
 }
 
+//! Deliver a mail.
+/*!
+ * This delivers a Mail to the client. The client must give a valid mail number.
+ * \param session The current session.
+ * \param arg     The number of the requestet mail as char sequence.
+ * \return CHECK_OK on success, CHECK_FAIL else.
+ */
 static int pop3_retr_mailbox(pop3_session_t * session, char * arg) {
     size_t l = strlen(arg);
     int i;
@@ -316,13 +450,20 @@ static int pop3_retr_mailbox(pop3_session_t * session, char * arg) {
     }
 }
 
+//! Mark a mail as deleted.
+/*!
+ * This marks a mail as deleted if the given number is a valid mail number.
+ * \param session The current session.
+ * \param arg     The number of the mail as char sequence.
+ * \return CHECK_OK on success, CHECK_FAIL else.
+ */
 static int pop3_dele_mailbox(pop3_session_t * session, char * arg) {
     int l = strlen(arg);
     int i;
 
     if (NULL == session->session_mailbox) {
-                 return CHECK_FAIL;
-                     }
+        return CHECK_FAIL;
+    }
 
     if (0 == l) {
         pop3_write_client_msg(session->session_writeback_fkt, session->session_writeback_fd, POP3_MSG_DELE_ERR);
@@ -342,6 +483,13 @@ static int pop3_dele_mailbox(pop3_session_t * session, char * arg) {
     }
 }
 
+//! Reset a mailbox
+/*! 
+ * This resets a mailbox session. It resets all deletion marks.
+ * \param session The current session.
+ * \param arg     Not used.
+ * \return CHECK_OK on success, CHECK_FAIL else.
+ */
 static int pop3_rset_mailbox(pop3_session_t * session, char * arg) {
 
     if (NULL == session->session_mailbox) {
@@ -354,10 +502,18 @@ static int pop3_rset_mailbox(pop3_session_t * session, char * arg) {
     return CHECK_OK;
 }
 
+//! Process NOOP command
+/*!
+ * This simply send a \p +OK to the client if it sends a NOOP command.
+ * \param session The current session.
+ * \param arg     Not used.
+ * \return CHECK_OK in any case.
+ */
 static int pop3_noop_mailbox(pop3_session_t * session, char * arg) {
     pop3_write_client_msg(session->session_writeback_fkt, session->session_writeback_fd, POP3_MSG_NOOP);
     return CHECK_OK;
 }
+/** @} */
 
 static inline char * pop3_prepare_arg(char * msg, ssize_t msglen, char * command){
     int l, c;
@@ -473,3 +629,5 @@ int pop3_destroy_session(pop3_session_t * session){
 
     return 0;
 }
+
+/* @} */

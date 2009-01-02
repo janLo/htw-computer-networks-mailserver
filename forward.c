@@ -219,11 +219,11 @@ static inline int fwd_write_command(int remote_fd, const char *command, const ch
 
 //! Check the reply of the server
 /*! 
- * This checks rhe reply code of a server message. If thr code isas the given
- * expected, R_OK will be returned. If the code cannot be extracted, R_NOP will
+ * This checks rhe reply code of a server message. If thr code is as the given
+ * expected, \p R_OK will be returned. If the code cannot be extracted, \p R_NOP will
  * returned. If the server indicates that the command will be successful on
- * retry, R_RETRY will returnd and on a reply code indicates a fatal error
- * R_FAIL will b returned.
+ * retry, \p R_RETRY will returnd and on a reply code indicates a fatal error
+ * \p R_FAIL will b returned.
  * \param buf      The message from the server as char sequence.
  * \param expected The expected reply code.
  * \return One of the values of the response enum (see above).
@@ -249,11 +249,11 @@ static inline int check_cmd_reply(char * buf, int expected) {
 //! Write the body to th server
 /*!
  * This writes the whole list of given body lines to the server. The lines are
- * sended in wingle write()s, each terminated with <cr><lf>. At the and a
- * '.<cr><lf>' will be sended to indicate the end of the message.
- * \param remote_fd The fd to write thr body.
+ * sended in wingle \p write()s, each terminated with \p \<cr>\<lf>. At the and a
+ * \p '.\<cr>\<lf>' will be sended to indicate the end of the message.
+ * \param remote_fd The \p fd to write thr body.
  * \param body      The head element of the body line list.
- * \return FWD_OK on success, FWD_FAIL else.
+ * \return \p FWD_OK on success, \p FWD_FAIL else.
  */
 static inline int fwd_write_body(int remote_fd, body_line_t * body) {
     body_line_t * elem = body;

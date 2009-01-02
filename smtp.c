@@ -71,7 +71,7 @@ enum session_states {
     EHLO,       //!< A session after EHLO (waiting for AUTH).
     FROM,       //!< A session after MAIL FROM, waiting for RCPT TO.
     RCPT,       //!< A session after RCPT TO, waiting for DATA.
-    DATA,       //!< A session after DATA, waiting for the data block, terminated with '<cr><lf>.<cr><lf>'.
+    DATA,       //!< A session after DATA, waiting for the data block, terminated with \p '\<cr>\<lf>.\<cr>\<lf>'.
     AUTH,       //!< A session waiting for auth credentials.
     QUIT,       //!< A terminated session.
 };
@@ -228,9 +228,10 @@ char * smtp_unbase64(unsigned char *input, int length)
  * The message must be a snprintf() format string. It must contain a %d for the
  * status and optional a %s for the optional argument.
  * If the argument is NULL, it will not be added.
- * \param fd  The file descriptor  to write the message.
- * \param msg The message (format string).
- * \param add The additional argument.
+ * \param fd     The file descriptor  to write the message.
+ * \param status The return status for the client.
+ * \param msg    The message (format string).
+ * \param add    The additional argument.
  * \return SMTP_OK on success, SMTP_FAIL else.
  */
 int smtp_write_client_msg(int fd, int status, const char *msg, const char *add){
@@ -286,6 +287,7 @@ static inline int smtp_check_prefix(char *buf,  char *prefix) {
  * The return value is one of the check_states enum (see above). 
  * \param buff	    The buffer with the line to check.
  * \param prefix    The prefix the line should start with.
+ * \param delim     The delimiter char between the command and the argument.
  * \param check_fkt The function to validate the argument.
  * \param val	    A pointer to some space where the pointer of the argument
  *                  should be placed.
@@ -344,7 +346,7 @@ static int smtp_check_input(char *buff,  char *prefix, char delim, int (*check_f
  * This clean a session structure from all mail specific content. This is used
  * to free space after delivery of a mail, reset of or abort of a session.
  * After this function a new mail can be sent with the same session structure.
- * \param The session structure.
+ * \param session The session structure.
  */
 static void smtp_clean_mail_fields(smtp_session_t * session) {
     session->session_state = HELO;
@@ -365,7 +367,7 @@ static void smtp_clean_mail_fields(smtp_session_t * session) {
 /*!
  * This deletes all body content of a given session and set the session_data
  * field to NULL.
- * \param The session structure.
+ * \param session The session structure.
  */
 static void smtp_delete_body_lines(smtp_session_t * session){
     body_line_t * tmp1 = session->session_data;
@@ -401,7 +403,7 @@ static inline void smtp_reset_session(smtp_session_t * session) {
  * session_authenticated flag will be set to one and the sesion_user field will
  * be set to the given username.
  * \param buf      The line with the base64 encoded credentials.
- * \param buflen   The length of the line without \0.
+ * \param buflen   The length of the line without \p \\0.
  * \param session  The session structore of the current session.
  * \return CHECK_OK on successful auth, CHECK_ABRT else.
  */
@@ -442,7 +444,7 @@ static int smtp_process_auth_line(char * buf, ssize_t buflen,  smtp_session_t * 
  * SMTP_MSG_NOOP and so on).
  * The return val is one of the check_states.
  * \param buf        The buffer with the client committed content.
- * \param buflen     The length of the buffer without \0.
+ * \param buflen     The length of the buffer without \p \\0.
  * \param prefix     The expected prefix of the line.
  * \param delim      The delimiter between prefix and arg.
  * \param check_fkt  The function to check the argument, passed to
@@ -628,7 +630,7 @@ static inline int smtp_check_mail_user_local(char * addr) {
  * This creates a new body_line_t element with the given content and returns a
  * pointer to it.
  * \param line     The content as char sequence.
- * \param line_len The length of the content without \0.
+ * \param line_len The length of the content without \p \\0.
  * \return A pointer to the new body_line_t element.
  */
 static inline body_line_t * smtp_create_body_line(char * line, int line_len){
@@ -650,7 +652,7 @@ static inline body_line_t * smtp_create_body_line(char * line, int line_len){
  * The returned pointer points to the new generated element.
  * \param list The existing body_line_t element list.
  * \param line The content of the new element as char sequence.
- * \param line_len The length of the content without \0.
+ * \param line_len The length of the content without \p \\0.
  * \return A pointer to the new body_line_t element.
  * \sa smtp_create_body_line()
  */
@@ -673,7 +675,7 @@ static inline body_line_t * smtp_append_body_line(body_line_t * list, char * lin
 /*! 
  * This collapse all body_line_t elements of a given session in one memory
  * block. This is used for saving in the users mailbox.
- * \aram session The session the data should used from.
+ * \param session The session the data should used from.
  * \return A pointer to the new message.
  */
 static char * smtp_collapse_body_lines(smtp_session_t * session){
@@ -703,13 +705,13 @@ static char * smtp_collapse_body_lines(smtp_session_t * session){
 
 //! Reads the body data of a email 
 /*!
- * This reads the mail body data linewise. If a ^.<cr><lf>$ is read CHECK_QUIT
+ * This reads the mail body data linewise. If a \p ^.\<cr>\<lf>$ is read CHECK_QUIT
  * will be returned to indicate the end of the message block.
  * If normal data is read, it appends it to the sessions session_data list.
  * \param buf     The buffer with data from the client.
  * \param buflen  The length of the buffer.
  * \param session The session the data should appended to.
- * \return CHECK_QUIT on ^.<cr><lf>$, CHECK_OKCHECK_OK on sucessful data read,
+ * \return CHECK_QUIT on \p ^.\<cr>\<lf>$, CHECK_OKCHECK_OK on sucessful data read,
  *         CHECK_ABRT on failture
  * \sa smtp_append_body_line(), smtp_process_input()
  */

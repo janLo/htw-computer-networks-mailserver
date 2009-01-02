@@ -149,7 +149,7 @@ inline void config_to_upper(char * str, size_t len){
 //! Parse the User CSV File
 /*! 
  * Parsing the CSV file defining the users and passwords.
- * The format is: username\tpassword\n
+ * The format is: username\\tpassword\\n
  * \param filename The filename of the CSV File
  * \return CONFIG_OK on successful parsing, CONFIG_ERROR else.
  */
