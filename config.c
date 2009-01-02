@@ -15,6 +15,11 @@
 
 #include "config.h"
 
+/*!
+ * \defgroup config Configuration Module
+ * @{
+ */
+
 #define BUF_SIZE_HUGE 4096
 
 typedef struct user user_t;
@@ -491,6 +496,8 @@ int config_init(int argc, char * argv[]){
     }
     return (init_ok ? CONFIG_OK : CONFIG_ERROR);
 }
+
+/** @} */
 
 // Test!
 /*

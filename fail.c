@@ -12,6 +12,13 @@
 
 #include "fail.h"
 
+
+/*!
+ * \defgroup fail Error Module
+ * @{
+ */
+
+
 // Puts a error to stderr
 void put_err(const char *src){
   if (src == NULL){
@@ -31,3 +38,4 @@ void put_err_str(const char *err){
   }
 }
 
+/** @} */

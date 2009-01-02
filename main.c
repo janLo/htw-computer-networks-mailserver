@@ -16,6 +16,11 @@
 #include "mailbox.h"
 #include "connection.h"
 
+/*!
+ * \defgroup main Main Module
+ * @{
+ */
+
 #define VERSION  "0.1 PRE ALPHA"
 #define REVISION "r10"
 
@@ -111,3 +116,5 @@ int main(int argc, char* argv[]) {
 
     return 0;
 }
+
+/** @} */

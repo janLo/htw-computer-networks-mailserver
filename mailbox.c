@@ -12,6 +12,12 @@
 #include <sqlite3.h>
 
 #include "mailbox.h"
+
+/*!
+ * \defgroup mbox Mailbox Module
+ * @{
+ */
+
 #define DB_FILE "./mailboxes.sqlite"
 
 #define STATEMENT_PUSH   "INSERT INTO mail (user,data,size,date) VALUES (?,?,?,?)"
@@ -364,4 +370,4 @@ void mbox_close_app(){
     sqlite3_close(database);
 }
 
-
+/** @} */

@@ -23,6 +23,11 @@
 #include "pop3.h"
 #include "forward.h"
 
+/*!
+ * \defgroup connection Connection Module
+ * @{
+ */
+
 #define BUF_SIZE 4096*4
 
 typedef struct mysocket mysocket_t;
@@ -473,3 +478,5 @@ int conn_new_fwd_socket(char * host,  void * data){
     }
     return new;
 }
+
+/** @} */

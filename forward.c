@@ -19,6 +19,11 @@
 #include "smtp.h"
 
 
+/*!
+ * \defgroup forward SMTP forward Module
+ * @{
+ */
+
 //! Max number of retrys of a command.
 #define SEND_MAXTRY 3
 
@@ -570,3 +575,5 @@ int fwd_free_mail(fwd_mail_t * fwd) {
     printf("fwd freed\n");
     return FWD_OK;
 }
+
+/** @} */
