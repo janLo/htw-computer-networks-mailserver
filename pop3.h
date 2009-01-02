@@ -26,6 +26,11 @@
 #define POP3_MSG_LIST_LINE      "%d %d\r\n"                             // Count, Size
 #define POP3_MSG_LIST_ERR	"-ERR No such message\r\n"
 
+#define POP3_MSG_UIDL		"+OK %d %s\r\n"				// Count, UID
+#define POP3_MSG_UIDL_OK	"+OK\r\n"
+#define POP3_MSG_UIDL_LINE      "%d %s\r\n"                             // Count, UID
+#define POP3_MSG_UIDL_ERR	"-ERR No such message\r\n"
+
 #define POP3_MSG_RETR_OK	"+OK %d Octets\r\n"			// Msg size
 #define POP3_MSG_RETR_ERR	"-ERR No such message\r\n"
 

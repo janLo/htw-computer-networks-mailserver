@@ -397,12 +397,13 @@ int conn_close() {
     return CONN_OK;
 }
 
-/* TODO omplement ssl writeback here */
+/* TODO implement ssl writeback here */
 ssize_t conn_writeback_ssl(int fd, char * buf, ssize_t len) {
     return 0;
 }
 
 ssize_t conn_writeback(int fd, char * buf, ssize_t len) {
+    printf("writeback: %s\n", buf);
     return write(fd, buf, len);
 }
 

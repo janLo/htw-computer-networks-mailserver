@@ -194,8 +194,9 @@ int mbox_count(mailbox_t * mbox){
 /*! This function returns the size of a given mailbox or mail in it. 
  * If mailnum is a positive value, the size of the mail with this
  * number will be returned.
- * \param mbox    The mailbos working with.
+ * \param mbox    The mailbox.
  * \param mailnum The optional number of the mail in the mailbox.
+ * \return The size of the mail or -1 on failture. 
  */
 size_t mbox_mail_size(mailbox_t * mbox, int mailnum){
     if (mailnum > 0 && mailnum <= mbox->mbox_mailcount) {
@@ -203,6 +204,25 @@ size_t mbox_mail_size(mailbox_t * mbox, int mailnum){
 	return mbox->mbox_map[offset].mail_size;
     } else {
 	return -1;
+    }
+}
+
+//! Uid of a Mail
+/*!
+ * This returns a unique id of a given mail as char sewuwnce.
+ * The returned buffer must be freed manually. 
+ * \param mbox    The mailbox.
+ * \param mailnum The optional number of the mail in the mailbox.
+ * \return NULL on faulture or a buffer with the UID.
+ */
+char * mbox_mail_uid(mailbox_t * mbox, int mailnum) {
+    if (mailnum > 0 && mailnum <= mbox->mbox_mailcount) {
+       char * buf = malloc(sizeof(char) * 20);
+       int offset = mailnum - 1;
+       snprintf(buf, 19, "%018d",mbox->mbox_map[offset].mail_id);
+       return buf;
+    } else {
+        return NULL;
     }
 }
 

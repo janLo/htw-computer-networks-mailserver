@@ -48,6 +48,7 @@ static int pop3_quit_session(pop3_session_t * session, char * foo);
 
 static int pop3_stat_mailbox(pop3_session_t * session, char * arg);
 static int pop3_list_mailbox(pop3_session_t * session, char * arg);
+static int pop3_uidl_mailbox(pop3_session_t * session, char * arg);
 static int pop3_retr_mailbox(pop3_session_t * session, char * arg);
 static int pop3_dele_mailbox(pop3_session_t * session, char * arg);
 static int pop3_rset_mailbox(pop3_session_t * session, char * arg);
@@ -62,6 +63,7 @@ typedef struct pop3_command {
 static const pop3_command_t transact_commands[] = {
     {"STAT", pop3_stat_mailbox, 0},
     {"LIST", pop3_list_mailbox ,1},
+    {"UIDL", pop3_uidl_mailbox ,1},
     {"RETR", pop3_retr_mailbox ,1},
     {"DELE", pop3_dele_mailbox ,1},
     {"NOOP", pop3_noop_mailbox ,0},
@@ -233,6 +235,41 @@ static int pop3_list_mailbox(pop3_session_t * session, char * arg) {
     return CHECK_OK;
 }
 
+static int pop3_uidl_mailbox(pop3_session_t * session, char * arg) {
+    int    i;
+    int    l = strlen(arg);
+    char * buf;
+   
+    if (NULL == session->session_mailbox) {
+         return CHECK_FAIL;
+    }
+
+    if (0 < l) {
+        i = atoi(arg);
+        if (mbox_count(session->session_mailbox) >= i &&
+                0 < i &&
+                ! mbox_is_msg_deleted(session->session_mailbox, i)) {
+            buf = mbox_mail_uid(session->session_mailbox, i);
+            pop3_write_client_msg(session->session_writeback_fkt, session->session_writeback_fd, POP3_MSG_UIDL, i, buf);
+            free(buf);
+        } else {
+            pop3_write_client_msg(session->session_writeback_fkt, session->session_writeback_fd, POP3_MSG_UIDL_ERR);
+            return CHECK_FAIL;
+        }
+    } else {
+        pop3_write_client_msg(session->session_writeback_fkt, session->session_writeback_fd, POP3_MSG_UIDL_OK); 
+        for (i = 1; i <= mbox_count(session->session_mailbox); i++){
+            if (! mbox_is_msg_deleted(session->session_mailbox, i)) {
+                buf = mbox_mail_uid(session->session_mailbox, i);
+                pop3_write_client_msg(session->session_writeback_fkt, session->session_writeback_fd, POP3_MSG_UIDL_LINE, i, buf);
+                free(buf);
+            }
+        }
+        pop3_write_client_term(session->session_writeback_fkt, session->session_writeback_fd, 0);
+    }
+    return CHECK_OK;
+}
+
 static int pop3_retr_mailbox(pop3_session_t * session, char * arg) {
     size_t l = strlen(arg);
     int i;
@@ -335,6 +372,7 @@ static inline char * pop3_prepare_arg(char * msg, ssize_t msglen, char * command
 static inline int pop3_process_cmd_list(char * msg, ssize_t msglen, pop3_session_t * session, const pop3_command_t * cmds) {
     int    i    = 0;
     char * arg  = NULL;;
+    int    t    = 0;
 
     for (i = 0; NULL != cmds[i].command_string; i++){
         if ( CHECK_OK == pop3_test_cmd(msg, cmds[i].command_string)) {
@@ -347,9 +385,12 @@ static inline int pop3_process_cmd_list(char * msg, ssize_t msglen, pop3_session
                     return CONN_QUIT;
                 }
             }
+            t = 1;
             break;
         }
     }
+    if (0 == t)
+        pop3_write_client_msg(session->session_writeback_fkt, session->session_writeback_fd, "-ERR\r\n");
     return CONN_CONT;
 }
 

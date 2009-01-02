@@ -29,6 +29,8 @@ int mbox_count(mailbox_t * mbox);
 
 size_t mbox_mail_size(mailbox_t * mbox, int mailnum);
 
+char * mbox_mail_uid(mailbox_t * mbox, int mailnum);
+
 int mbox_mark_deleted(mailbox_t * mbox, int mailnum);
 
 int mbox_is_msg_deleted(mailbox_t * mbox, int mailnum);
