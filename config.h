@@ -25,6 +25,7 @@ const char* config_get_relayhost();
 const char* config_get_dbfile();
 
 inline void config_to_lower(char * str, size_t len);
+inline void config_to_upper(char * str, size_t len);
 
 int config_has_user(const char* name);
 

@@ -220,27 +220,6 @@ char * smtp_unbase64(unsigned char *input, int length)
     return buffer;
 }
 
-//! Converts a String to uppercase
-/*!
- * Convert a char sequence to upper case for better matching with strcmp(). The
- * provided sequence will be modified, no copy will be created! 
- * The parameter len is optional to prevent the function from do a strlen() at
- * first to determine the length of the string. If it is set to 0, a strlen will
- * count the length of the string at first.
- * \param str The String to convert.
- * \param len The length of the string _without_ null terminator.
- */
-inline void config_to_upper(char * str, size_t len){
-    size_t i;
-
-    if (0 == len){
-        len = strlen(str);
-    }
-    for ( i = 0; i < len; i++ ) {
-        str[i] = toupper(str[i]);
-    }
-}
-
 //! Writes a message back to the client
 /*! 
  * This write a message back to the session-assigned writeback_fd.

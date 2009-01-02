@@ -125,6 +125,27 @@ inline void config_to_lower(char * str, size_t len){
     }
 }
 
+//! Converts a String to uppercase
+/*!
+ * Convert a char sequence to upper case for better matching with strcmp(). The
+ * provided sequence will be modified, no copy will be created! 
+ * The parameter len is optional to prevent the function from do a strlen() at
+ * first to determine the length of the string. If it is set to 0, a strlen will
+ * count the length of the string at first.
+ * \param str The String to convert.
+ * \param len The length of the string _without_ null terminator.
+ */
+inline void config_to_upper(char * str, size_t len){
+    size_t i;
+
+    if (0 == len){
+        len = strlen(str);
+    }
+    for ( i = 0; i < len; i++ ) {
+        str[i] = toupper(str[i]);
+    }
+}
+
 //! Parse the User CSV File
 /*! 
  * Parsing the CSV file defining the users and passwords.

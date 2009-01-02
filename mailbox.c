@@ -163,6 +163,7 @@ mailbox_t * mbox_init(char* user){
         new_mbox->mbox_map[i].mail_size           = sqlite3_column_int(statement_stat, 1);
         new_mbox->mbox_map[i].mail_id             = sqlite3_column_int(statement_stat, 0);
         new_mbox->mbox_map[i].is_deleted          = 0;
+        new_mbox->mbox_size                      += new_mbox->mbox_map[i].mail_size;
         i++;
     }
     sqlite3_reset(statement_stat);
@@ -190,9 +191,8 @@ int mbox_count(mailbox_t * mbox){
 }
 
 //! Size of a mail or mailbox
-/*! This function returns the size of a given mailbox or mail in it. If it is
- * invoked with mailnum == 0 then the overall size of the mailbox will be
- * returned. If mailnum is a positive value, the size of the mail with this
+/*! This function returns the size of a given mailbox or mail in it. 
+ * If mailnum is a positive value, the size of the mail with this
  * number will be returned.
  * \param mbox    The mailbos working with.
  * \param mailnum The optional number of the mail in the mailbox.
@@ -224,6 +224,22 @@ int mbox_mark_deleted(mailbox_t * mbox, int mailnum){
 	return MAILBOX_OK;
     } else {
 	return MAILBOX_ERROR;
+    }
+}
+
+//! Checks if a message is marked as deleted
+/*!
+ * This can be used to check if a message is marked to be deleted or not.
+ * \param mbox The mailbox of the mail to be marked.
+ * \param mailnum The number of the mail in the mailbox.
+ * \return 0 if the message is not marked, 1 else.
+ */
+int mbox_is_msg_deleted(mailbox_t * mbox, int mailnum){
+    if (mailnum > 0 && mailnum <= mbox->mbox_mailcount) {
+        int offset = mailnum - 1;
+        return mbox->mbox_map[offset].is_deleted;
+    } else {
+        return 0;
     }
 }
 
