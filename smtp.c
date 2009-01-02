@@ -28,6 +28,10 @@
 #include "fail.h"
 #include "mailbox.h"
 
+/*!
+ * \defgroup smtp SMTP Module
+ * @{
+ */
 
 //! States of a check
 /*! 
@@ -1023,3 +1027,5 @@ int smtp_process_input(char * msg, int msglen, smtp_session_t * session) {
 
     return CONN_CONT;
 }
+
+/** @} */

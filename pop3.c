@@ -515,13 +515,23 @@ static int pop3_noop_mailbox(pop3_session_t * session, char * arg) {
 }
 /** @} */
 
+//! Prepare the argument
+/*!
+ * This prepare the arguments of a command line from the client by stripping
+ * newlines on the end and whitespaces on the begin.
+ * the pointer to the arg is given as return value. The convertions are done on
+ * the original buffer, so no extra free is neccesary.
+ * \param msg     The message from the client.
+ * \param msglen  The length of the message.
+ * \param command The command from the client.
+ * \return The argument as char sequence.
+ */
 static inline char * pop3_prepare_arg(char * msg, ssize_t msglen, char * command){
     int l, c;
     char * pos;
 
     l = pop3_strip_newlines(msg, msglen);
     c = strlen(command);
-
 
     if (c >= l){
         return &(msg[l]);
@@ -538,6 +548,20 @@ static inline char * pop3_prepare_arg(char * msg, ssize_t msglen, char * command
     return pos;
 }
 
+//! Process the client commands
+/*! 
+ * This iterate over the given command list and checks if the given line starts
+ * with the current commanf. It a match was found, it looks if the command has a
+ * arg and prepares it.
+ * Then the callback of the command will be called and the return value
+ * determined from it.
+ * \param msg     The message from the client.
+ * \param msglen  The length of the message.
+ * \param session The current session.
+ * \param cmds    The command list.
+ * \return CONN_CONT if the session should be alive after this call, CONN_QUIT
+ *         else.
+ */
 static inline int pop3_process_cmd_list(char * msg, ssize_t msglen, pop3_session_t * session, const pop3_command_t * cmds) {
     int    i    = 0;
     char * arg  = NULL;;
@@ -563,7 +587,17 @@ static inline int pop3_process_cmd_list(char * msg, ssize_t msglen, pop3_session
     return CONN_CONT;
 }
 
+/** \name Session creation
+ * @{ */
 
+//! Create a pop3 session
+/*!
+ * Creates a new session and initialize all data. It also sets the correct
+ * writeback function for the connection type.
+ * \param writeback_socket The filedescriptor to the client.
+ * \param ssl              Flag if it is a plain or a ssl session.
+ * \return a new session or NULL on failture.
+ */
 pop3_session_t * pop3_create_session(int writeback_socket, int ssl){
     pop3_session_t * new = NULL;
     conn_writeback_t fkt = ( ssl ? conn_writeback_ssl : conn_writeback);
@@ -590,14 +624,41 @@ pop3_session_t * pop3_create_session(int writeback_socket, int ssl){
     return new;
 }
 
+//! Create a plain POP3 session
+/*!
+ * Simply calls pop3_create_session with ssl = 0.
+ * \param writeback_socket The filedescriptor to the client.
+ * \return a new session or NULL on failture.
+ * \sa pop3_create_session()
+ */
 pop3_session_t * pop3_create_normal_session(int writeback_socket){
     return pop3_create_session(writeback_socket, 0);
 }
 
+//! Create a ssl POP3 Session
+/*!
+ * Simply calls pop3_create_session with ssl = 1.
+ * \param writeback_soket The filedescriptor to the client.
+ * \return a new session or NULL on failture.
+ * \sa pop3_create_session()
+ */
 pop3_session_t * pop3_create_ssl_session(int writeback_soket) {
     return NULL;
 }
 
+/** @} */
+
+//! Process the input
+/*! 
+ * This is the callback for the connection module to process the messages from
+ * the pop3 client.
+ * \param msg     The message from the client.
+ * \param msglen  The length of the message.
+ * \param session The current session.
+ * \return CONN_CONT if the session should be alive after this call, CONN_QUIT
+ *         else.
+ * \sa pop3_process_cmd_list()
+ */
 int pop3_process_input(char * msg, ssize_t msglen, pop3_session_t * session){
     int ret = CONN_CONT;
     switch (session->session_state) {
@@ -615,6 +676,13 @@ int pop3_process_input(char * msg, ssize_t msglen, pop3_session_t * session){
     return ret;
 }
 
+//! Destroys a pop3 session
+/*!
+ * This destroys a pop3 session, quits the mailbox, releases the lock and frees
+ * all memory.
+ * \param session The session to quit.
+ * \return 0 in any case.
+ */
 int pop3_destroy_session(pop3_session_t * session){
     if (NULL != session) {
         if (NULL != session->session_mailbox) {
