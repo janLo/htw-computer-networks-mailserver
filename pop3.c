@@ -18,28 +18,38 @@
 #include "mailbox.h"
 
 
+//! The states of a pop3 session
+/*!
+ * Used to trac the state of a pop3 sesseion.
+ */
 enum pop3_states {
-   AUTH,
-   START,
-   QUIT
+   AUTH,                //!< Auth state, not authorized jet.
+   START,               //!< Transaction state.
+   QUIT                 //!< Invalid session
 };
 
+//! The teturn values of the checks
+/*!
+ * Any check returns one of this enum values.
+ */
 enum pop3_checks {
-    CHECK_OK,
-    CHECK_FAIL,
-    CHECK_QUIT
+    CHECK_OK,           //!< Check successed.
+    CHECK_FAIL,         //!< Check failed.
+    CHECK_QUIT          //!< Check indicated the end of the session.
 };
 
 
+//! Representation of a POP3 session
 struct pop3_session {
-   int              session_writeback_fd;
-   conn_writeback_t session_writeback_fkt;
-   enum pop3_states session_state;
-   int              session_authorized;
-   char *           session_user;
-   mailbox_t *      session_mailbox;
+   int              session_writeback_fd;       //!< The fd to write data back to the client.
+   conn_writeback_t session_writeback_fkt;      //!< The function used by the connection module to write data to the client.
+   enum pop3_states session_state;              //!< The state of the session.
+   int              session_authorized;         //!< Flag indicates if a session is authoized.
+   char *           session_user;               //!< Authorized user.
+   mailbox_t *      session_mailbox;            //!< Mailbox object of the session.
 };
 
+//! Type of command processing functions
 typedef  int (* pop3_command_fkt_t)(pop3_session_t*, char *);
 
 static int pop3_check_user(pop3_session_t *, char *);
@@ -54,12 +64,14 @@ static int pop3_dele_mailbox(pop3_session_t * session, char * arg);
 static int pop3_rset_mailbox(pop3_session_t * session, char * arg);
 static int pop3_noop_mailbox(pop3_session_t * session, char * arg);
 
+//! A Pop3 command
 typedef struct pop3_command {
-    char *             command_string;
-    pop3_command_fkt_t command_fkt;
-    int                command_has_arg;
+    char *             command_string;          //!< The command string.
+    pop3_command_fkt_t command_fkt;             //!< The function to procett the command.
+    int                command_has_arg;         //!< Flag if command has arguments.
 } pop3_command_t;
 
+//! Commands of the transaction state.
 static const pop3_command_t transact_commands[] = {
     {"STAT", pop3_stat_mailbox, 0},
     {"LIST", pop3_list_mailbox ,1},
@@ -72,6 +84,7 @@ static const pop3_command_t transact_commands[] = {
     {NULL,   NULL,0}
 };
 
+//! Commands of the Auth state.
 static const pop3_command_t auth_commands[] = {
     {"USER", pop3_check_user,   1},
     {"PASS", pop3_check_passwd, 1},
