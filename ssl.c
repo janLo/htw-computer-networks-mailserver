@@ -135,15 +135,6 @@ void ssl_quit_client(SSL * ssl, int socket){
 	r = SSL_shutdown(ssl);
     }
 
-    switch(r){
-	case 1:
-	    break; /* Success */
-	case 0:
-	case -1:
-	default:
-	    ssl_berr_exit("Shutdown failed");
-    }
-
     SSL_free(ssl);
 }
 
