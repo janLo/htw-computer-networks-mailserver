@@ -15,6 +15,7 @@
 #include "config.h"
 #include "mailbox.h"
 #include "connection.h"
+#include "ssl.h"
 
 /*!
  * \defgroup main Main Module
@@ -108,9 +109,13 @@ int main(int argc, char* argv[]) {
     config_init(argc, argv);
     mbox_init_app(config_get_dbfile()); 
     
+    ssl_app_init();
+    
     conn_init();
     conn_wait_loop();
     conn_close();
+
+    ssl_app_destroy();
 
     mbox_close_app();
 

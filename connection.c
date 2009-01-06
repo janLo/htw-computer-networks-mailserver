@@ -286,7 +286,7 @@ int conn_accept_normal_client(mysocket_t * socket){
     data_init_t       init_handler = (data_init_t)socket->socket_data;
 
     printf("smtp\n");
-    if ( -1 == (new = accept(socket->socket_fd, &sa, &len)) ) {
+    if ( -1 == (new = accept(socket->socket_fd, &sa, (uint32_t*)&len)) ) {
         return CONN_FAIL;
     }
 

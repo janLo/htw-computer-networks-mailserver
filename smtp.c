@@ -419,7 +419,7 @@ static int smtp_process_auth_line(char * buf, ssize_t buflen,  smtp_session_t * 
     int    ret = CHECK_ABRT;
     int    len = 0;
 
-    printf("BASE64: '%s' (%d)\n", buf, buflen);
+    printf("BASE64: '%s' (%d)\n", buf, (int)buflen);
     printf("PLAIN:  %s .. %s .. %s\n", id, auth, pass);
 
     if (config_has_user(auth) && config_verify_user_passwd(auth, pass)) {
