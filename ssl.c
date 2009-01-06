@@ -148,7 +148,7 @@ void ssl_quit_client(SSL * ssl, int socket){
 }
 
 int ssl_read(int socket, SSL * ssl, char * buf, int buflen){
-    int r;
+    int r, e;
     BIO *io,*ssl_bio;
 
     io=BIO_new(BIO_f_buffer());
@@ -158,10 +158,20 @@ int ssl_read(int socket, SSL * ssl, char * buf, int buflen){
 
     r=BIO_gets(io, buf ,buflen - 1);
 
-    if (SSL_ERROR_NONE == SSL_get_error(ssl,r)) {
-	printf("SSL: %s\n", buf);
-	return r;
+    e = SSL_get_error(ssl,r);
+
+    switch (e) {
+	case SSL_ERROR_NONE:
+	    return r;
+	case SSL_ERROR_ZERO_RETURN:
+	case SSL_ERROR_WANT_READ:
+	case SSL_ERROR_SYSCALL:
+	    return 0;
+	default:
+	    ssl_berr_exit("SSL read problem");
     } 
+
+
     ssl_berr_exit("SSL read problem");
 
     return -1;

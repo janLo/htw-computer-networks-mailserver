@@ -39,11 +39,12 @@ typedef int   (* read_handler_t)(mysocket_t*);
 
 //! Socket and assigned data
 struct mysocket {
-    int    socket_fd;
-    void * socket_data;
+    int            socket_fd;
+    void *         socket_data;
     read_handler_t socket_read_handler;
     data_handler_t socket_data_handler;
     data_deleter_t socket_data_deleter;
+    int            socket_is_ssl;
 };
 
 //! Socket lisz
@@ -110,7 +111,7 @@ int conn_setup_listen(const char * port) {
 }
 
 //! Helper for socket list elements
-static inline mysocket_list_t * conn_build_socket_elem(int fd, void * data, 
+static inline mysocket_list_t * conn_build_socket_elem(int fd, void * data, int is_ssl,
 	read_handler_t read_handler, 
         data_handler_t data_handler, 
         data_deleter_t data_deleter){
@@ -123,6 +124,7 @@ static inline mysocket_list_t * conn_build_socket_elem(int fd, void * data,
     elem->list_socket.socket_read_handler = read_handler;
     elem->list_socket.socket_data_handler = data_handler;
     elem->list_socket.socket_data_deleter = data_deleter;
+    elem->list_socket.socket_is_ssl       = is_ssl;
     
     if ( -1 == (elem->list_socket.socket_fd = fd) ) {
         free(elem);
@@ -161,6 +163,7 @@ static inline int conn_delete_socket_elem(int fd){
     mysocket_list_t * elem;
     mysocket_list_t * prev;
     mysocket_list_t * next;
+    void            * data;
 
     elem = socketlist_head;
     prev = NULL;
@@ -175,7 +178,12 @@ static inline int conn_delete_socket_elem(int fd){
 		socketlist_head = next;
 	    }
 	    if (NULL != elem->list_socket.socket_data_deleter) {
-		(elem->list_socket.socket_data_deleter)(elem->list_socket.socket_data);
+                if(elem->list_socket.socket_is_ssl) {
+                    data = ((ssl_data_t*)elem->list_socket.socket_data)->ssl_data;
+		} else {
+		    data = elem->list_socket.socket_data;
+		}
+		(elem->list_socket.socket_data_deleter)(data);
 	    }
 	    close(fd);
 	    free(elem);
@@ -352,7 +360,7 @@ int conn_accept_normal_client(mysocket_t * socket){
         return CONN_FAIL;
     }
 
-    elem = conn_build_socket_elem(new, data, 
+    elem = conn_build_socket_elem(new, data, 0,
             conn_read_normal, 
             (data_handler_t)socket->socket_data_handler,
             (data_deleter_t)socket->socket_data_deleter);
@@ -390,7 +398,7 @@ int conn_accept_ssl_client(mysocket_t * socket){
 
     data->ssl_ssl = ssl_accept_client(new);
 
-    elem = conn_build_socket_elem(new, data,
+    elem = conn_build_socket_elem(new, data, 1,
 	    conn_read_ssl,
 	    (data_handler_t)socket->socket_data_handler,
 	    (data_deleter_t)socket->socket_data_deleter);
@@ -425,7 +433,7 @@ int conn_init(){
 
     /* Setup SMTP */
     fd = conn_setup_listen(config_get_smtp_port());
-    elem = conn_build_socket_elem(fd, smtp_create_session, conn_accept_normal_client, 
+    elem = conn_build_socket_elem(fd, smtp_create_session, 0, conn_accept_normal_client, 
             (data_handler_t)smtp_process_input, (data_deleter_t)smtp_destroy_session);
     if (NULL == elem) 
         return CONN_FAIL;
@@ -433,7 +441,7 @@ int conn_init(){
 
     /* Setup POP3 */
     fd = conn_setup_listen(config_get_pop_port());
-    elem->list_next = conn_build_socket_elem(fd, pop3_create_normal_session, conn_accept_normal_client, 
+    elem->list_next = conn_build_socket_elem(fd, pop3_create_normal_session, 0, conn_accept_normal_client, 
 	(data_handler_t)pop3_process_input, (data_deleter_t)pop3_destroy_session);
     elem = elem->list_next;
     if (NULL == elem) 
@@ -441,7 +449,7 @@ int conn_init(){
 
     /* Setup POP3S */
     fd = conn_setup_listen(config_get_pops_port());
-    elem->list_next = conn_build_socket_elem(fd, pop3_create_ssl_session, conn_accept_ssl_client, 
+    elem->list_next = conn_build_socket_elem(fd, pop3_create_ssl_session, 0, conn_accept_ssl_client, 
 	(data_handler_t)pop3_process_input, (data_deleter_t)pop3_destroy_session);
     elem = elem->list_next;
     if (NULL == elem) 
@@ -516,7 +524,7 @@ ssize_t conn_writeback(int fd, char * buf, ssize_t len) {
 static inline int conn_queue_forward_socket(int fd, fwd_mail_t * data){
     mysocket_list_t * elem;
 
-    elem = conn_build_socket_elem(fd, data, 
+    elem = conn_build_socket_elem(fd, data, 0,
             (read_handler_t)conn_read_normal,
             (data_handler_t)fwd_process_input,
             (data_deleter_t)fwd_free_mail);
