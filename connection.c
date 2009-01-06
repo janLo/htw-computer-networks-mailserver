@@ -22,6 +22,7 @@
 #include "smtp.h"
 #include "pop3.h"
 #include "forward.h"
+#include "ssl.h"
 
 /*!
  * \defgroup connection Connection Module
@@ -188,17 +189,13 @@ static inline int conn_delete_socket_elem(int fd){
     return CONN_FAIL;
 }
 
-//! Read some normal data
-static inline readbuf_t * conn_read_normal_buff(int socket){
+static inline readbuf_t * conn_tokenize_output(char * readbuf, ssize_t l) {
     ssize_t len;
-    char * buf;
     char * next;
+    char * buf;
     readbuf_t * ret = NULL;
     readbuf_t * tmp = NULL;
-    
 
-    len = read(socket,readbuf,BUF_SIZE-1);
-    
     if (len < 1){
         ret = malloc(sizeof(readbuf_t));
         ret->line_data = NULL;
@@ -233,6 +230,21 @@ static inline readbuf_t * conn_read_normal_buff(int socket){
     }
         
     return ret;
+}
+
+//! Read some normal data
+static inline readbuf_t * conn_read_normal_buff(int socket){
+    ssize_t len;
+    
+    len = read(socket,readbuf,BUF_SIZE-1);
+    return conn_tokenize_output(readbuf, len);
+}
+
+static inline readbuf_t * conn_read_ssl_buff(int socket, ssl_data_t * ssl){
+    ssize_t len;
+
+    len = ssl_read(socket, ssl->ssl_ssl, readbuf, BUF_SIZE-1);
+    return conn_tokenize_output(readbuf, len);
 }
 
 //! Read some smtp data
@@ -270,9 +282,54 @@ int conn_read_normal(mysocket_t * socket){
     return 0;
 }
 
+static inline ssl_data_t * conn_find_ssl_data(int socket){
+    mysocket_list_t * elem = socketlist_head;
+
+    while (elem != NULL) {
+	if (socket == elem->list_socket.socket_fd) {
+	    return (ssl_data_t *)elem->list_socket.socket_data;
+	}
+
+	elem = elem->list_next;
+    }
+    return NULL;
+}
+
+
 //! Read some pop3s data
 int conn_read_ssl(mysocket_t * socket){
-    /* TODO implement! */
+    ssl_data_t * data = socket->socket_data;
+    readbuf_t * buf   = conn_read_ssl_buff(socket->socket_fd, data);
+    readbuf_t * tmp   = NULL;
+    int status        = CONN_CONT;
+
+    if (0 < buf->line_len){
+
+        while (NULL != buf) {
+            tmp = buf;
+            buf = buf->line_next;
+
+
+            if (CONN_CONT == status) {
+                printf("process: %s\n", tmp->line_data);
+                status = socket->socket_data_handler(tmp->line_data, 
+                        tmp->line_len, data->ssl_data);
+            }
+
+            if (CONN_QUIT == status) {
+                printf("QUIT\n");
+		ssl_quit_client(data->ssl_ssl, socket->socket_fd);
+                conn_delete_socket_elem(socket->socket_fd);
+            }
+
+            free(tmp->line_data);
+            free(tmp);
+        }
+    } else {
+        printf("%i\n", buf->line_len);
+        conn_delete_socket_elem(socket->socket_fd);
+        free(buf);
+    }
     return 0;
 }
 
@@ -315,9 +372,50 @@ int conn_accept_normal_client(mysocket_t * socket){
 
 //! Accept a Pop3S connection
 int conn_accept_ssl_client(mysocket_t * socket){
-    /* TODO implement! */
+    int               new;
+    struct            sockaddr sa;
+    size_t            len = sizeof(sa);
+    ssl_data_t      * data;
+    data_init_t       init_handler = (data_init_t)socket->socket_data;
+    mysocket_list_t * elem;
+
+
+
     printf("pop3s\n");
-    return 0;
+    if ( -1 == (new = accept(socket->socket_fd, &sa, (uint32_t*)&len)) ) {
+	return CONN_FAIL;
+    }
+
+    data = malloc(sizeof(ssl_data_t));
+
+    data->ssl_ssl = ssl_accept_client(new);
+
+    elem = conn_build_socket_elem(new, data,
+	    conn_read_ssl,
+	    (data_handler_t)socket->socket_data_handler,
+	    (data_deleter_t)socket->socket_data_deleter);
+
+    if (NULL == elem) {
+	socket->socket_data_deleter(data);
+	ssl_quit_client(data->ssl_ssl, new);
+	close(new);
+	return CONN_FAIL;
+    }
+
+    if ( CONN_FAIL == conn_append_socket_elem(elem) ) {
+	socket->socket_data_deleter(data);
+	free(elem);
+	ssl_quit_client(data->ssl_ssl, new);
+	close(new);
+	return CONN_FAIL;
+    }
+    if( NULL == (data->ssl_data = init_handler(new)) ) {
+	ssl_quit_client(data->ssl_ssl, new);
+	close(new);
+	return CONN_FAIL;
+    }
+
+    return CONN_OK;
 }
 
 //! Init listening connections
@@ -343,7 +441,8 @@ int conn_init(){
 
     /* Setup POP3S */
     fd = conn_setup_listen(config_get_pops_port());
-    elem->list_next = conn_build_socket_elem(fd, NULL, conn_accept_ssl_client, NULL, NULL);
+    elem->list_next = conn_build_socket_elem(fd, pop3_create_ssl_session, conn_accept_ssl_client, 
+	(data_handler_t)pop3_process_input, (data_deleter_t)pop3_destroy_session);
     elem = elem->list_next;
     if (NULL == elem) 
         return CONN_FAIL;
@@ -402,9 +501,11 @@ int conn_close() {
     return CONN_OK;
 }
 
-/* TODO implement ssl writeback here */
 ssize_t conn_writeback_ssl(int fd, char * buf, ssize_t len) {
-    return 0;
+    ssl_data_t * data = conn_find_ssl_data(fd);
+
+    printf("writeback (ssl): %s\n", buf);
+    return ssl_write(fd, data->ssl_ssl, buf, len);
 }
 
 ssize_t conn_writeback(int fd, char * buf, ssize_t len) {

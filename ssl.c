@@ -1,4 +1,5 @@
 #include <signal.h>
+#include <sys/socket.h>
 
 #include <openssl/err.h>
 
@@ -107,5 +108,86 @@ void load_dh_params(SSL_CTX *ctx, char *file) {
 
 void ssl_app_destroy(){
     ssl_destroy_ctx(ssl_ctx);
+    load_dh_params(ssl_ctx, DHFILE);
 }
 
+SSL * ssl_accept_client(int socket){
+    BIO *sbio;
+    SSL *ssl;
+    int r;
+
+    sbio=BIO_new_socket(socket,BIO_NOCLOSE);
+    ssl=SSL_new(ssl_ctx);
+    SSL_set_bio(ssl,sbio,sbio);
+
+    if((r = SSL_accept(ssl)<=0))
+	ssl_berr_exit("SSL accept error");
+
+    return ssl;
+}
+
+void ssl_quit_client(SSL * ssl, int socket){
+    int r;
+
+    r = SSL_shutdown(ssl);
+    if(!r){
+	shutdown(socket, 1);
+	r = SSL_shutdown(ssl);
+    }
+
+    switch(r){
+	case 1:
+	    break; /* Success */
+	case 0:
+	case -1:
+	default:
+	    ssl_berr_exit("Shutdown failed");
+    }
+
+    SSL_free(ssl);
+}
+
+int ssl_read(int socket, SSL * ssl, char * buf, int buflen){
+    int r;
+    BIO *io,*ssl_bio;
+
+    io=BIO_new(BIO_f_buffer());
+    ssl_bio=BIO_new(BIO_f_ssl());
+    BIO_set_ssl(ssl_bio,ssl,BIO_CLOSE);
+    BIO_push(io,ssl_bio);
+
+    r=BIO_gets(io, buf ,buflen - 1);
+
+    if (SSL_ERROR_NONE == SSL_get_error(ssl,r)) {
+	printf("SSL: %s\n", buf);
+	return r;
+    } 
+    ssl_berr_exit("SSL read problem");
+
+    return -1;
+}
+
+int ssl_write(int socket, SSL * ssl, char * buf, int buflen){
+    int r;
+    BIO *io,*ssl_bio;
+    static char tmp[4096*4];
+
+    io=BIO_new(BIO_f_buffer());
+    ssl_bio=BIO_new(BIO_f_ssl());
+    BIO_set_ssl(ssl_bio,ssl,BIO_CLOSE);
+    BIO_push(io,ssl_bio);
+
+    if (buflen+1 > 4096*4)
+	return -1;
+
+    memcpy(tmp, buf, buflen);
+    tmp[buflen] = '\0';
+
+    if ((r=BIO_puts(io, tmp))<=0)
+	ssl_err_exit("Write error");
+
+    if (BIO_flush(io)<0)
+	ssl_err_exit("Error flushing BIO");
+
+    return r;
+}

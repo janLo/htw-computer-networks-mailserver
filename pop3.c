@@ -643,7 +643,7 @@ pop3_session_t * pop3_create_normal_session(int writeback_socket){
  * \sa pop3_create_session()
  */
 pop3_session_t * pop3_create_ssl_session(int writeback_soket) {
-    return NULL;
+    return pop3_create_session(writeback_soket, 1);
 }
 
 /** @} */
