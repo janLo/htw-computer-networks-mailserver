@@ -29,28 +29,46 @@
  * @{
  */
 
+//! The size of the read buffer
 #define BUF_SIZE 4096*4
 
+//! Typedef for the mysocket struct
 typedef struct mysocket mysocket_t;
+
+//! Function prototype for session init functions
 typedef void* (* data_init_t   )(int socket);
+
+//! Function prototype for session deleter functions
 typedef int   (* data_deleter_t)(void * data);
+
+//! Function prototype for data handling functions
 typedef int   (* data_handler_t)(char * msg, ssize_t msglen, void * data);
+
+//! Function prototype for data reading functions
 typedef int   (* read_handler_t)(mysocket_t*);
 
+
 //! Socket and assigned data
+/*! 
+ * This covers all socket assigned data like callbacks, session data, ...
+ */
 struct mysocket {
-    int            socket_fd;
-    void *         socket_data;
-    read_handler_t socket_read_handler;
-    data_handler_t socket_data_handler;
-    data_deleter_t socket_data_deleter;
-    int            socket_is_ssl;
+    int            socket_fd;		//!< The file descriptor.
+    void *         socket_data;         //!< The assigned data or (in the special case of listening sockets the accept callback).
+    read_handler_t socket_read_handler; //!< The callback to read data from the socket.
+    data_handler_t socket_data_handler; //!< The callback to deal with readed data.
+    data_deleter_t socket_data_deleter; //!< The callback to destroy session assigned data.
+    int            socket_is_ssl;       //!< Flag that indicate if we have ssl or not.
 };
 
-//! Socket lisz
+
+//! Socket list
+/*!
+ * This is a linked list, holding all sockets of the app.
+ */
 typedef struct mysocket_list {
-    mysocket_t             list_socket;
-    struct mysocket_list * list_next;
+    mysocket_t             list_socket; //!< The sochet.
+    struct mysocket_list * list_next;   //!< The pointer to the next element.
 } mysocket_list_t;
 
 //! The readed data
@@ -60,10 +78,18 @@ typedef struct mysocket_list {
 typedef  body_line_t readbuf_t;
 
 mysocket_list_t * socketlist_head = NULL; //! Head of the socket list
+
+//! A static buffer to read data.
 char  readbuf[BUF_SIZE];
 
 
 //! Helper for addrinfo
+/*!
+ * This is a simple helper to build a addrinfo struct with the host of the app
+ * and a given port.
+ * \param port The port to bind.
+ * \return The addrinfo struct.
+ */
 static inline struct addrinfo * conn_build_addrinfo(const char * port){
     struct addrinfo hints;
     struct addrinfo* res = NULL;
@@ -82,6 +108,12 @@ static inline struct addrinfo * conn_build_addrinfo(const char * port){
 }
 
 //! Setup a listening socket
+/*!
+ * This creates a listening socket on the given port. It will be bound to the
+ * hostname of the app or INET ANY if none specified.
+ * \param port The port to bind.
+ * \return The new created listening socket or -1 on failture.
+ */
 int conn_setup_listen(const char * port) {
     int new_sock = 0;
 
@@ -111,6 +143,17 @@ int conn_setup_listen(const char * port) {
 }
 
 //! Helper for socket list elements
+/*!
+ * This creates a new mysocket struct and pack it in a mysocket_list struct. On
+ * failture, NULL will be returned.
+ * \param fd           The file descriptor of the new socket.
+ * \param data         The data of the new session.
+ * \param is_ssl       Flag to indicate if a session is ssl or not.
+ * \param read_handler The callback to read data.
+ * \param data_handler The callback to deal with data.
+ * \param data_deleter The callback to delete data.
+ * \return The new element or NULL on failture.
+ */
 static inline mysocket_list_t * conn_build_socket_elem(int fd, void * data, int is_ssl,
 	read_handler_t read_handler, 
         data_handler_t data_handler, 
@@ -134,6 +177,11 @@ static inline mysocket_list_t * conn_build_socket_elem(int fd, void * data, int 
 }
 
 //! Append a socket list element
+/*!
+ * Append a mysocket_list_t element to the list of sockets.
+ * \param new The new socket element to append.#
+ * \return CONN_OK on success, CONN_FAIL else.
+ */
 static inline int conn_append_socket_elem(mysocket_list_t * new){
     mysocket_list_t * elem;
 
@@ -159,6 +207,13 @@ static inline int conn_append_socket_elem(mysocket_list_t * new){
 
 
 //! Delete element from socket list
+/*! 
+ * Delete the socket element with the given file descriptor from the socket
+ * list and frees all resources. The data delete callback of the socket object
+ * to free all the session assigned data.
+ * \param fd The file descriptor of the element to delete.
+ * \return CONN_OK on success, CONN_FAIL else.
+ */
 static inline int conn_delete_socket_elem(int fd){
     mysocket_list_t * elem;
     mysocket_list_t * prev;
@@ -197,6 +252,16 @@ static inline int conn_delete_socket_elem(int fd){
     return CONN_FAIL;
 }
 
+//! Cut the readed data at the newline char
+/*! 
+ * This cuts the readed buffer in tokens on the newline char and puts the token
+ * in a readbuf_t list.
+ * If the buffer is empty a fingle readbuf_t element will be returned with
+ * line_len set to <1.
+ * \param readbuf The readed buffer.
+ * \param l       The length of the data.
+ * \return the readbuf_t list or NULL.
+ */
 static inline readbuf_t * conn_tokenize_output(char * readbuf, ssize_t l) {
     ssize_t len;
     char * next;
@@ -241,6 +306,12 @@ static inline readbuf_t * conn_tokenize_output(char * readbuf, ssize_t l) {
 }
 
 //! Read some normal data
+/*!
+ * Reads some data from a normal socket, cut them in a readbuf_t list and
+ * returns this.
+ * \param socket The socket to read from.
+ * \return The readbuf_t list.
+ */
 static inline readbuf_t * conn_read_normal_buff(int socket){
     ssize_t len;
     
@@ -248,6 +319,14 @@ static inline readbuf_t * conn_read_normal_buff(int socket){
     return conn_tokenize_output(readbuf, len);
 }
 
+//! Read some ssl data
+/*!
+ * This reads some data from a ssl enabled socket, cut them in a readbuf_t list
+ * and returns it.
+ * \param socket The socket to read from.
+ * \param ssl    The ssl_data struct of the socket.
+ * \return The readbuf_t list.
+ */
 static inline readbuf_t * conn_read_ssl_buff(int socket, ssl_data_t * ssl){
     ssize_t len;
 
@@ -255,7 +334,17 @@ static inline readbuf_t * conn_read_ssl_buff(int socket, ssl_data_t * ssl){
     return conn_tokenize_output(readbuf, len);
 }
 
-//! Read some smtp data
+//! Read some normal data
+/*!
+ * This reads and processes normal data from a given socket. This function will
+ * be called if the main event loop think there is some data to read from a
+ * specific not-ssl socket.
+ * It also calls the callback for processing the data at the right module. If
+ * the size of the data is 0, the socketd element will be removed from the list, 
+ * destroyed and the socked closed.
+ * \param socket The socket element to read data from.
+ * \return 0 in every case.
+ */
 int conn_read_normal(mysocket_t * socket){
     readbuf_t * buf = conn_read_normal_buff(socket->socket_fd);
     readbuf_t * tmp = NULL;
@@ -290,6 +379,13 @@ int conn_read_normal(mysocket_t * socket){
     return 0;
 }
 
+//! Find ssl data
+/*!
+ * Searches for the ssl data of a given fd in the socket list. The data will be
+ * returned.
+ * \param socket The fd to search.
+ * \return The ssl data or NULL on failture.
+ */
 static inline ssl_data_t * conn_find_ssl_data(int socket){
     mysocket_list_t * elem = socketlist_head;
 
@@ -304,7 +400,17 @@ static inline ssl_data_t * conn_find_ssl_data(int socket){
 }
 
 
-//! Read some pop3s data
+//! Read some ssl data
+/*!
+ * This reads and processes normal data from a given socket. This function will
+ * be called if the main event loop think there is some data to read from a
+ * specific ssl socket.
+ * It also calls the callback for processing the data at the right module. If
+ * the size of the data is 0, the socketd element will be removed from the list, 
+ * destroyed and the socked closed.
+ * \param socket The socket element to read data from.
+ * \return 0 in every case.
+ */
 int conn_read_ssl(mysocket_t * socket){
     ssl_data_t * data = socket->socket_data;
     readbuf_t * buf   = conn_read_ssl_buff(socket->socket_fd, data);
@@ -341,7 +447,14 @@ int conn_read_ssl(mysocket_t * socket){
     return 0;
 }
 
-//! Accept a smtp connection
+//! Accept a normal connection
+/*!
+ * This accepts a normal client connection on a listening socket. The socket
+ * data will be initialized with the right callback and with the socket queued
+ * to the socket list.
+ * \param socket The socket struct to accept.
+ * \return CONN_OK on succes, CONN_FAIL else.
+ */
 int conn_accept_normal_client(mysocket_t * socket){
     int               new;
     struct            sockaddr sa;
@@ -378,7 +491,15 @@ int conn_accept_normal_client(mysocket_t * socket){
     return CONN_OK;
 }
 
-//! Accept a Pop3S connection
+//! Accept a normal connection
+/*!
+ * This accepts a ssl client connection on a listening socket. It also performs
+ * the ssl handshake. The socket data will be initialized with the right 
+ * callback and with the socket queued
+ * to the socket list.
+ * \param socket The socket struct to accept.
+ * \return CONN_OK on succes, CONN_FAIL else.
+ */
 int conn_accept_ssl_client(mysocket_t * socket){
     int               new;
     struct            sockaddr sa;
@@ -427,6 +548,12 @@ int conn_accept_ssl_client(mysocket_t * socket){
 }
 
 //! Init listening connections
+/*!
+ * Initialize the listening sockets for SMTP, POP3 and POP3S. The sokets will
+ * also be queued to the socket list.
+ * This should be called only once on app start.
+ * \return CONN_OK on success, CONN_FAIL else.
+ */
 int conn_init(){
     mysocket_list_t * elem;
     int fd;
@@ -459,6 +586,14 @@ int conn_init(){
 }
 
 //! Do the connection wait loop
+/*! 
+ * This is the main event loop. It performs a select() on all sockets in the
+ * socket list to watch them for input. If the select returns it iterate trough
+ * the socket list and calls the read_handler callback for each active socket.
+ * This should be called once in the app to perform the client handling. If it
+ * returns, the app should be quit.
+ * \return 0 in any case.
+ */
 int conn_wait_loop(){
     mysocket_list_t * elem;
     fd_set rfds;
@@ -497,6 +632,10 @@ int conn_wait_loop(){
 }
 
 //! Close all connections
+/*! This claoses all elements in the socket list. It can be used to cleanup
+ * after SIGTERM etc.
+ * \return CONN_OK.
+ */
 int conn_close() {
     mysocket_list_t * elem = socketlist_head;
     int fd;
@@ -509,6 +648,14 @@ int conn_close() {
     return CONN_OK;
 }
 
+//! Write data to the ssl client
+/*!
+ * This is a function to write data back to a ssl client.
+ * \param fd  The socket to the client.
+ * \param buf The data to write.
+ * \param len The length of the data.
+ * \return >0 on success.
+ */
 ssize_t conn_writeback_ssl(int fd, char * buf, ssize_t len) {
     ssl_data_t * data = conn_find_ssl_data(fd);
 
@@ -516,11 +663,28 @@ ssize_t conn_writeback_ssl(int fd, char * buf, ssize_t len) {
     return ssl_write(fd, data->ssl_ssl, buf, len);
 }
 
+//! Write data to the client
+/*!
+ * This is a function to write data back to a client.
+ * \param fd  The socket to the client.
+ * \param buf The data to write.
+ * \param len The length of the data.
+ * \return >0 on success.
+ */
 ssize_t conn_writeback(int fd, char * buf, ssize_t len) {
     printf("writeback: %s\n", buf);
     return write(fd, buf, len);
 }
 
+//! Queue a socket of a forward
+/*! This is used by the mail forward module to queu the socket to the relay host
+ * in the socket list. 
+ * If it is in the list it can be watched for input in the main loop to reduce
+ * blocking.
+ * \param fd   The fd to the relay host.
+ * \param data The data of the forward session.
+ * \return CONN_OK on success, CONN_FAIL else.
+ */
 static inline int conn_queue_forward_socket(int fd, fwd_mail_t * data){
     mysocket_list_t * elem;
 
@@ -543,6 +707,12 @@ static inline int conn_queue_forward_socket(int fd, fwd_mail_t * data){
     return CONN_OK;
 }
 
+//! Connect to relay host
+/*! This is used to connect to a relayhost. 
+ * \param host The hostname of the relayhost.
+ * \param port The port of the connection.
+ * \return The new socket to the relayhost on success or CONN_FAIL.
+ */
 static inline int conn_connect_socket(char * host, char * port) {
     int new = 0;
     struct addrinfo hints;
@@ -572,8 +742,14 @@ static inline int conn_connect_socket(char * host, char * port) {
     return new;
 }
 
-
-
+//! Create a new forward socket and queue it 
+/*!
+ * This create a new forward socket by connecting to the relayhost and queues 
+ * it to the socket list. 
+ * \param host The hostname of the relayhost.
+ * \param port The port of the connection.
+ * \return The new socket to the relayhost on success or CONN_FAIL.
+ */
 int conn_new_fwd_socket(char * host,  void * data){
     int new = 0;
     fwd_mail_t * data_ = (fwd_mail_t*) data;

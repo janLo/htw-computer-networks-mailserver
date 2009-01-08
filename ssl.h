@@ -1,3 +1,12 @@
+/* ssl.h
+ *
+ * The connection-ssl module for the "Beleg Rechnernetze/Kommunikationssysteme".
+ *
+ * author: Jan Losinski
+ * date: 08.01.08
+ */
+
+
 #include <openssl/ssl.h>
 
 typedef struct ssl_data {

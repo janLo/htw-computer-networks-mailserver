@@ -1,9 +1,24 @@
+/* ssl.c
+ *
+ * The connection-ssl module for the "Beleg Rechnernetze/Kommunikationssysteme".
+ *
+ * author: Jan Losinski
+ * date: 08.01.08
+ */
+
+
 #include <signal.h>
 #include <sys/socket.h>
 
 #include <openssl/err.h>
 
 #include "ssl.h"
+
+
+/*!
+ * \defgroup ssl Connection-SSL Module
+ * @{
+ */
 
 #define CA_LIST "cacert.pem"
 #define PASSWD  "1234"
@@ -192,3 +207,5 @@ int ssl_write(int socket, SSL * ssl, char * buf, int buflen){
 
     return r;
 }
+
+/** @} */

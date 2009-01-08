@@ -106,6 +106,9 @@ int main(int argc, char* argv[]) {
     if (preprocess_options(argc, argv)) {
         return 0;
     }
+
+    /* TODO signals should be masked! */
+
     config_init(argc, argv);
     mbox_init_app(config_get_dbfile()); 
     
