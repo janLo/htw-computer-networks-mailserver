@@ -20,39 +20,79 @@
  * @{
  */
 
+//! The CA File
 #define CA_LIST "cacert.pem"
+
+//! The passphrase for the private key
 #define PASSWD  "1234"
+
+//! The cert and the private key
 #define KEYFILE "comb.pem"
+
+//! The DH File
 #define DHFILE  "dh1024.pem"
 
+//! Static place to store the errors
 BIO *bio_err=0;
+
+//! Static buffer for the passwd of the private key
 static char *pass;
-static int ssl_password_cb(char *buf,int num, int rwflag,void *userdata);
-static void ssl_sigpipe_handle(int x);
+
+//! The Ssl context
 SSL_CTX * ssl_ctx;
 
-/* A simple error and exit routine*/
+//! A simple error and exit routine
+/*!
+ * \param string A error to print.
+ * \rerurn Nothing.
+ */
 int ssl_err_exit(char *string){
     fprintf(stderr,"%s\n",string);
     exit(0);
 }
 
-/* Print SSL errors and exit*/
+//!* Print SSL errors and exit
+/*!
+ * \param string A error to print.
+ * \rerurn Nothing.
+ */
 int ssl_berr_exit(char *string)  {
     BIO_printf(bio_err,"%s\n",string);
     ERR_print_errors(bio_err);
     exit(0);
 }
-    static int ssl_password_cb(char *buf,int num, int rwflag,void *userdata){
-	if(num<strlen(pass)+1)
-	    return(0);
-	strcpy(buf,pass);
-	return(strlen(pass));
-    }
 
+//! Callback for the password
+/*! 
+ * A simple callback to copy the password of the private key in a given buffer.
+ * \param buf      Buffer to copy the passwd.
+ * \param num      Length of the buffer.
+ * \param rwflag   Not used.
+ * \param userdata Not used.
+ * \return The length of the password.
+ */
+static int ssl_password_cb(char *buf,int num, int rwflag,void *userdata){
+    if(num<strlen(pass)+1)
+        return(0);
+    strcpy(buf,pass);
+    return(strlen(pass));
+}
+
+//! A empty sigpipe handler
+/*! 
+ * Used to do nothing on SIGPIPE.
+ * \param x Not used.
+ */
 static void ssl_sigpipe_handle(int x){
 }
 
+//! Initialize the SSL context
+/*!
+ * This is used to initialize the global ssl context used with all SSL actions.
+ * \param keyfile  The file with the Certificate and the key.
+ * \param password The password of the private key.
+ * \return The new global SSL context.
+ */
 SSL_CTX * ssl_initialize_ctx(char *keyfile, char *password){
     SSL_METHOD *meth;
     SSL_CTX *ctx;
@@ -96,10 +136,19 @@ SSL_CTX * ssl_initialize_ctx(char *keyfile, char *password){
     return ctx;
 }
 
+//! Destroys a SSL context
+/*!
+ * \param ctx The SSL context to destroy.
+ */
 void ssl_destroy_ctx(SSL_CTX* ctx){
     SSL_CTX_free(ctx);
 }
 
+//! Loads the dh params
+/*! 
+ * \param ctx  The SSL context.
+ * \param file The DH file.
+ */
 void load_dh_params(SSL_CTX *ctx, char *file) {
     DH *ret=0;
     BIO *bio;
@@ -114,18 +163,33 @@ void load_dh_params(SSL_CTX *ctx, char *file) {
 	ssl_berr_exit("Couldn't set DH parameters");
 }
 
-    int ssl_app_init(){
-	if(NULL != (ssl_ctx = ssl_initialize_ctx(KEYFILE, PASSWD)))
-	    return 1;
-	load_dh_params(ssl_ctx,DHFILE);
-	return 0;
-    }
+//! Init the SSL module
+/*! 
+ * This initialize the SSL module on app atart. It shold only called once!
+ * \return 0 on success, -1 else.
+ */
+int ssl_app_init(){
+    if(NULL == (ssl_ctx = ssl_initialize_ctx(KEYFILE, PASSWD)))
+	    return -1;
+    load_dh_params(ssl_ctx,DHFILE);
+    return 0;
+}
 
+//! Deinit the module on app close.
+/*! 
+ * Destroys the context on app close.
+ */
 void ssl_app_destroy(){
     ssl_destroy_ctx(ssl_ctx);
     load_dh_params(ssl_ctx, DHFILE);
 }
 
+//! Do the SSL handshake
+/*! This performs the SSL handshake on a new connection and returns the SSL 
+ * data of the new created session.
+ * \param socket The socket of the new session.
+ * \return The SSL data of the new session.
+ */
 SSL * ssl_accept_client(int socket){
     BIO *sbio;
     SSL *ssl;
@@ -141,6 +205,11 @@ SSL * ssl_accept_client(int socket){
     return ssl;
 }
 
+//! Quit a SSL client
+/*!
+ * \param ssl    The SSL data of the session.
+ * \param socket The socket of the session.
+ */
 void ssl_quit_client(SSL * ssl, int socket){
     int r;
 
@@ -153,6 +222,14 @@ void ssl_quit_client(SSL * ssl, int socket){
     SSL_free(ssl);
 }
 
+//! Read data from a SSL connection
+/*!
+ * \param socket The socket of the connection.
+ * \param ssl    The SSL data of the session.
+ * \param buf    The buffer for reading.
+ * \param buflen The max. length of the buffer.
+ * \return >0 on success.
+ */
 int ssl_read(int socket, SSL * ssl, char * buf, int buflen){
     int r, e;
     BIO *io,*ssl_bio;
@@ -183,6 +260,14 @@ int ssl_read(int socket, SSL * ssl, char * buf, int buflen){
     return -1;
 }
 
+//! Write data to a SSL connection
+/*!
+ * \param socket The socket of the connection.
+ * \param ssl    The SSL data of the session.
+ * \param buf    The buffer with the data.
+ * \param buflen The length of the buffer.
+ * \return >0 on success.
+ */
 int ssl_write(int socket, SSL * ssl, char * buf, int buflen){
     int r;
     BIO *io,*ssl_bio;
