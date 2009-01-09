@@ -694,7 +694,8 @@ static char * smtp_collapse_body_lines(smtp_session_t * session){
     }
 
     line = session->session_data;
-    buf = malloc(sizeof(char) * size);
+    buf = malloc(sizeof(char) * size+1);
+    memset(buf, '\0', size);
     pos = buf;
 
     while (NULL != line){
@@ -702,6 +703,7 @@ static char * smtp_collapse_body_lines(smtp_session_t * session){
         pos += line->line_len;
         line = line->line_next;
     }
+    *pos = '\0';
 
     return buf;
 }
@@ -942,7 +944,7 @@ int smtp_process_input(char * msg, int msglen, smtp_session_t * session) {
             if (CHECK_QUIT == result) {
                 char * full_msg = smtp_collapse_body_lines(session);
 
-                printf("MSG:\n%s\n", full_msg);
+                printf("MSG:\n%s\n--\n", full_msg);
 
                 if (session->session_rcpt_local){
                     char * user = smtp_extraxt_mbox_user(session->session_to);

@@ -263,12 +263,13 @@ static inline int conn_delete_socket_elem(int fd){
  * \return the readbuf_t list or NULL.
  */
 static inline readbuf_t * conn_tokenize_output(char * readbuf, ssize_t l) {
-    ssize_t len;
+    ssize_t len = l;
     char * next;
     char * buf;
     readbuf_t * ret = NULL;
     readbuf_t * tmp = NULL;
 
+    printf("len: %d\n", len);
     if (len < 1){
         ret = malloc(sizeof(readbuf_t));
         ret->line_data = NULL;
@@ -298,7 +299,8 @@ static inline readbuf_t * conn_tokenize_output(char * readbuf, ssize_t l) {
         tmp->line_next = NULL;
         tmp->line_data = buf;
 
-        printf("%s\n", tmp->line_data);
+        printf("next: %s\n", next);
+        printf("data: %s\n", tmp->line_data);
         next = strtok(NULL, "\n");
     }
         
@@ -314,8 +316,9 @@ static inline readbuf_t * conn_tokenize_output(char * readbuf, ssize_t l) {
  */
 static inline readbuf_t * conn_read_normal_buff(int socket){
     ssize_t len;
-    
+    printf("read...\n"); 
     len = read(socket,readbuf,BUF_SIZE-1);
+    printf("readed: %s\n", readbuf); 
     return conn_tokenize_output(readbuf, len);
 }
 
