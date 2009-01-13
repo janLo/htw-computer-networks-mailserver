@@ -50,11 +50,9 @@ struct userlist {
 
 userlist_t * userlist_head = NULL; //! The head of the userlist
 
-/* TODO change ports to sane defaults */
-
-char * smtp_port = "2025";        //! The SMTP Port
-char * pop_port  = "20465";       //! The POP3 Port
-char * pops_port = "20993";       //! The POP3S Port
+char * smtp_port = "25";        //! The SMTP Port
+char * pop_port  = "110";       //! The POP3 Port
+char * pops_port = "995";       //! The POP3S Port
 
 char * hostname  = NULL;        //! The hostname of the server
 

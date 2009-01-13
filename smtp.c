@@ -729,7 +729,6 @@ static int smtp_process_body_data(char * buf, int buflen, smtp_session_t * sessi
     }
 
     if (NULL == session->session_data) {
-        /* TODO add recive headers here! */
         new = session->session_data = smtp_create_body_line(buf, buflen);
     } else {
         new = smtp_append_body_line(session->session_data, buf, buflen);

@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+#include <signal.h>
 
 #include "config.h"
 #include "mailbox.h"
@@ -101,13 +102,26 @@ int preprocess_options(int argc, char * argv[]){
    return ret;
 }
 
+static void exit_sig_handler(int signr){
+  printf("Signal recived, exit!\n");
+  conn_close();
+  ssl_app_destroy();
+  mbox_close_app();
+  exit(0);
+}
+
+
 //! The main function
 int main(int argc, char* argv[]) {
     if (preprocess_options(argc, argv)) {
         return 0;
     }
 
-    /* TODO signals should be masked! */
+    signal(SIGPIPE, SIG_IGN);
+    signal(SIGABRT, exit_sig_handler);
+    signal(SIGINT, exit_sig_handler);
+    signal(SIGQUIT, exit_sig_handler);
+    signal(SIGTERM, exit_sig_handler);
 
     config_init(argc, argv);
     mbox_init_app(config_get_dbfile()); 
