@@ -1,0 +1,97 @@
+\documentclass[pdftex,final,a4paper,11pt,notitlepage,halfparskip]{scrreprt}
+
+\usepackage[german,ngerman]{babel}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[babel,german=quotes]{csquotes}
+%\usepackage{fancybox}
+%\usepackage{color}
+%\usepackage{xcolor}
+\usepackage{hyperref}
+%\usepackage{floatflt}
+%\usepackage{graphicx}
+%\usepackage{amsmath}
+%\usepackage{amssymb}
+%\usepackage{amsfonts}
+%\usepackage{listings}
+
+\setkomafont{caption}{\footnotesize\linespread{1}\selectfont}
+\setlength{\abovecaptionskip}{-0.1cm}
+\addto\captionsngerman{\renewcommand\figurename{Abb.}}
+
+\title{Beleg\\
+Rechnernetze/\\
+Kommunikationssysteme}
+\author{Jan Losinski}
+
+\begin{document}
+
+\maketitle
+
+\tableofcontents
+
+\chapter{Aufgabe}
+
+\section{Wortlaut}
+Schreiben Sie einen Daemon, welcher E-Mails per ESMTP annehmen und weiterleiten 
+oder speichern sowie dem jeweiligen Nutzer per POP3 zur Verfügung stellen kann. 
+Die Implementierung von ESMTP muss eine Authentisierung des Nutzers vor dem 
+Absenden erzwingen. Die weitere Implementierung muss E-Mails annehmen und an die 
+passende E-Mail-Domain weiterleiten können, falls es sich bei dem Empfänger 
+nicht um einen lokalen Nutzer handelt. Das aussenden und Abrufen von E-Mails 
+muss mit einem E-Mail-Programm, wie beispielsweise Evolution oder Thunderbird 
+möglich sein.
+
+Randbedingungen:
+\begin{itemize}
+  \item Implementierung in C, nicht C\# oder C++ oder \dots
+  \item weitgehende Modularisierung, beispielsweise in einen POP3-Parser etc.
+  \item der Daemon läuft als ein Prozess ohne Threads (oder Forks)
+  \item das Mailboxformat darf beliebig sein
+  \item das Mailboxformat darf beliebig sein
+  \item die Anzahl der Nutzer darf auf 5 beschränkt sein
+  \item der Daemon muss ohne weiteres auf den Rechnern im Labor S311 übersetzt 
+        werden können und dort laufen
+  \item Gruppenarbeiten sind nicht erlaubt
+  \item Die Dokumentation des Daemons wie auch der Quellen geht in die Bewertung 
+        ein
+  \item es dürfen Bibliotheken verwendet werden, beispielsweise SQLITE oder 
+        GDBM, soweit diese keine grundlegenden Funktionen von POP3 oder (E)SMTP 
+	zur Verfügung stellen.
+  \item Die Abgabe des Belegs erfolgt über das SVN. Geprüft wird die letzte 
+        Revision. Das SVN ist ab 29.01.2009 0:00 nur noch lesbar. Nachreichungen 
+	werden nicht akzeptiert.
+\end{itemize}
+
+Programmieren sie nicht einfach darauf los. Beginnen Sie mit einer Konzeption 
+der benötigten Programmmodule. Diese Konzeption darf (und sollte auch) in 
+Gruppenarbeit erstellt werden.
+
+Der Daemon soll mindestend folgende Kommandozeilenparameter unterstützen
+\begin{description}
+  \item[-h] Dokumentation der Kommandozeilenparameter und exit
+  \item[-V] Informationen zur Version, SVN-Revision und Autor (Name, Vorname, Login)
+  \item[-p <Portnummer,Portnummer,Portnummer>] Portnummern mit Komma getrennt
+            für (E)SMTP, POP3 und POP3S\\ 
+            Voreingestellte Portnummern 25,110,995
+  \item[-u <Dateiname>] Datei mit den Nutzernamen als CSV-Datei mit "`TAB"' als 
+            Feld-Trenner\\ 
+	    Format: \texttt{Login\textbackslash tPasswort\textbackslash
+	    tsonstiges\dots\textbackslash n}
+\end{description} 
+
+\section{Erfragte Zusätze}
+Folgende zusätzliche Fahten zur Aufgabenstellung wurden erfragt:
+\begin{itemize}
+  \item SMTPS soll nicht implementiert werden.
+  \item Die Ein/Ausgabe kann blockierend erfolgen.
+  \item Der Mailheader muss nicht geparst werden, auch eine Extraktion von
+    Mailaddressen muss nicht erfolgen.
+  \item Mailrelay soll nur bei authentifiziertem ESMTP möglich sein.
+  \item Die Zustellung lokaler Mails ist ohne authehtifizierung möglich. 
+\end{itemize}<++>
+
+\chapter{Umsetzung}
+\chapter{Benutzung}
+
+\end{document}
