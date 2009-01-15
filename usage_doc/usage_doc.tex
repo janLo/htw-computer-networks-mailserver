@@ -246,19 +246,55 @@ werden soll oder nur deinitialisiert. Beim ordnungsgemäßen Schließen werden i
 Gegensatz zum einfachen deinitialisieren alle als gelöscht markierten Emails 
 aus der Datenbank gelöscht.
 
-\subsection{connection}
-Dieses Modul ist das Zentralste in der ganzen Anwendung. ss
+\subsection{Connection}
+Dieses Modul ist das Zentralste in der ganzen Anwendung. Es verwaltet Alle
+Verbindungen und verteilt die empfangenen Daten. Zum Start der Anwendung muss
+auch dieses Modul initialisiert werden. Dabei werden die drei Listening-Sockets,
+welche auf den angegebenen Ports auf Client Verbindungen warten geöffnet und
+gebunden. Die Verbindungen werden jeweils in einer \texttt{mysocket}-Struktur
+gekapselt. In dieser Struktur befinden sich alle Daten die zu der jeweilige
+Verbindung gehören. Dies sind verschiedene Callback-Funktionen zum Verarbeiten
+der Daten und die Daten der selbst. Die Daten einer verbindung sind in erster
+Linie die Session Strukturen der Client Verbindungen, welche zum Beispiel den
+Status einer SMTP Verbindung oder die Mailbox einer POP3 Verbindung enthalten.
 
-\subsection{smtp}
-\subsection{forward}
-\subsection{pop3}
-\subsection{ssl}
+Die \texttt{mysocket}-Strukturen werden in einer einfach gelinkten Liste
+gespeichert. In der Hauptschleife des Programms, welche auf Daten von den
+Clients oder neue Verbindungen wartet, werden alle Dateidescriptoren aus der
+Liste der Verbindungen in ein \texttt{fd\_set} geschrieben und einem
+\texttt{select()} übergeben. Kehrt das \texttt{select()} zurück wird die Liste
+erneut durchlaufen und für jede Verbindung, die Daten bereit hält die
+entsprechende Callback-Funktion aufgerufen.
+
+Diese Funktionen lesen dann je nach Verbindungstyp Daten vom Client und
+übergeben diese an das entsprechende Modul oder akzeptieren eine neue Verbindung
+und initialisieren diese.
+Beim lese der Daten ist zu beachten, das diese nach Zeilen getrennt an die
+entsprechenden Module übergeben werden. Bei SSL Verbindungen wiederum wird das
+SSL Modul benutzt um die Daten zu lesen, bzw. nach einem erfolgreichem 
+\texttt{accept()} einer neuen Verbindung der SSL Handshake durchgeführt.
+
+
+
+\subsection{Smtp}
+\subsection{Forward}
+\subsection{Pop3}
+\subsection{Ssl}
 
 \chapter{Benutzung}
 
-\begin{figure}[htb]
+\section{Allgemein}
+\section{Optionen}
+
+\pagebreak
+
+\begin{appendix}
+  \chapter{Abbildungen}
+  \section{Modulschema}
+  \begin{figure}[htb]
     \includegraphics[width=\textwidth]{schema.eps}
     \caption{Modulschema}
     \label{fig:schema}
   \end{figure}
+\end{appendix}
 \end{document}
