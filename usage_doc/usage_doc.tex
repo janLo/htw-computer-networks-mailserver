@@ -86,12 +86,51 @@ Folgende zusätzliche Fahten zur Aufgabenstellung wurden erfragt:
   \item SMTPS soll nicht implementiert werden.
   \item Die Ein/Ausgabe kann blockierend erfolgen.
   \item Der Mailheader muss nicht geparst werden, auch eine Extraktion von
-    Mailaddressen muss nicht erfolgen.
+        Mailaddressen muss nicht erfolgen.
   \item Mailrelay soll nur bei authentifiziertem ESMTP möglich sein.
   \item Die Zustellung lokaler Mails ist ohne authehtifizierung möglich. 
-\end{itemize}<++>
+\end{itemize}
+
+
 
 \chapter{Umsetzung}
+\section{Module}
+Bei der Planung wurde festgestellt, das eine Aufteilung der funktionalen
+Bestandteile des Programmes auf verschiedene getrennt, nur über definierte
+Schnittstellen kommunizierende, Module sinvoll ist. So können Fehler lokal
+begrenzt und schneller gefunden werden. Zudem wird der Code übersichtlicher und
+einfacher lesbar.
+
+Diese Modulaufteilung ist in C leider nur rudimentär umsetzbar, da es keine
+echte Kapselung funtionaler Einheiten oder gar Namensräume gibt. Die Wahl einer
+anderen Programmiersprache, wie z.B. C++ hätte dies wesentlich vereinfacht und
+zusätzlich noch für besser lesbaren Code gesorgt.
+
+Folgende Funktionalitäten wuden aus der Aufgabenstellung extrahiert und in extra
+Modulen zusammengefasst:
+
+\vspace{3mm}
+
+\begin{tabular}{lrll}
+  Modul       & Funktionalität \\
+  \hline\hline
+  config      & Hier geschieht die Konfiguration des Servers (auswerten der
+                Kommandozeilenparameter) und die bereitstellung der 
+		Konfigurtionsdaten für die anderen Module.
+  connection  & Dieses Modul ist für alle Operationen zuständig die direkt mit
+                der Verbindung zu tun haben. Dies ist das Annehmen neuer
+		Verbindugen, das aufsetzen der listening Sockets, das Lesen der
+		Daten vom Client, das Warten auf Daten von den Clients und das
+		Schreiben von Daten zu den Clients.
+  fail        & Ausgabe und behandlung von Fehlern.
+  forward     & 
+  mailbox     & 
+  main        &
+  pop3        &
+  smtp        &
+  ssl         &
+\end{tabular]
+
 \chapter{Benutzung}
 
 \end{document}
