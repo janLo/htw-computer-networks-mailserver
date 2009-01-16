@@ -274,9 +274,90 @@ entsprechenden Module übergeben werden. Bei SSL Verbindungen wiederum wird das
 SSL Modul benutzt um die Daten zu lesen, bzw. nach einem erfolgreichem 
 \texttt{accept()} einer neuen Verbindung der SSL Handshake durchgeführt.
 
+Die Module an die die gelesenen Daten übergeben werden sind das Pop3-, das 
+Smtp- und das Forward-Modul. Diese Funktionen sind in der \texttt{mysocket}
+Struktur entsprechend als Callback Funktion gesetzt.
+
+Die Module Pop3 und Smtp besitzen zudem noch Funktionen zum initialisieren neu
+akzeptierter Verbindungen. Dabei werden die Sitzungsdaten, welche für das 
+Jeweilige Protokoll benötigt werden initialisiert. Diese Funktionen sind als 
+Callback-Funktionen der jeweiligen Listening-Verbindung gesetzt, so das sie 
+automatisiert aufgerufen werden können wenn eine neue Verbindung entsteht.
+
+Beim Schließen von Verbindungen wird die zugeordnete Callback-Funktion der
+Verbindung zum Aufräumen der Sitzungsdate aufgerufen. Diese sind ebenfalls in
+den drei Modulen Pop3, Smtp und Forward definiert. Dieser Aufruf passiert in der
+Funktion, welche die \texttt{mysocket}-Strukturen aus der Liste der Sockets
+entfernt und die Sockets schliesst (\texttt{conn\_delete\_socket\_elem()}).
+Sollte die Verbindung eine SSL Verbindung sein, so wird hier auch die SSL
+Verbindung ordnungsgemäß abgebaut.
+
+Für das Forward Modul existieren zudem Funktionen zum Aufbauen neuer Verbindungen
+zu einem weiterem Mailserver oder einem Mailrelay. Diese neuen Verbindungen
+werden anschließend wie normale Client Verbindungen in die Liste der Sockets
+eingereiht.
+
+Am ende des Programmes wird von \texttt{main()} die Funktion 
+\texttt{conn\_close()} aufgerufen. Diese wird auch als Signalhandler für alle
+Signale die ein Ende des Programmes andeuten gesetzt. Sie geht die Liste der
+Sockes durch und baut alle Verbindungen ordnungsgemäß ab.
 
 
 \subsection{Smtp}
+Dieses Modul implementiert das SMTP (rfc 5321) Protokoll mit einigen ESMTP 
+Erweiterungen. Normale SMTP Sitzungen werden mit \texttt{HELO} Eingeleitet und
+sind auf das ausliefern von Emails an lokale Mailboxen begrenzt. Jeder Versuch
+eine Email an eine nicht-lokale Addresse zu senden wird mit einem Fehler
+quittiert. ESMTP Sitzungen werden mit einem \texttt{EHLO} des Clients
+eingeleitet. ESMTP Sitzungen müssen stets Authentifiziert werden. In
+Authentifizierten ESMTP Sitzungen können auch Emails an nicht-lokale Addressen
+versand werden. Diese werden dann mittels des Forward-Moduls an den betreffenden
+Mailserver oder einen angegebenen Relayhost weitergeleitet.
+
+Da SMTP/ESMTP Sitzungen stark Statusbehaftet sind muss in der Sitzungsstruktur,
+welche nach einem \texttt{accept()} einer neuen Verbindung initialisiert wird
+gespeichert werden. Anhand dieses Status wird der aktuelle Input des Clients
+verarbeitet und je nach Ergebnis ein Replycode gesendet sowie ein neuer Status 
+gesetzt oder nicht. Die Sitzungsstruktur wird dabei automatisch bei der
+Verarbeitung der Eingaben gefüllt und wieder geleert.
+
+Die Authentifizierung geschieht per \texttt{AUTH PLAIN}, welches der einzige
+implementierte Authentifizierungsmechanismus ist. Bei \texttt{AUTH PLAIN}
+schickt der Cient lt. Standard nach einem \texttt{AUTH PLAIN} einen Base64
+kodierten String von der Form:\\
+\texttt{<Userid>\textbackslash0<Username\textbackslash0<Passwort>}. 
+Interressant für die Authentifizierung ist dabei der Username und das Passwort.
+Mittels des Config Moduls wird zuerst geprüft, ob der Nutzer exisitert und
+anschließend ob das Passwort korrekt ist. Ist beides Erfolgreich, so wird die
+Sitzung als Authentifiziert markiert. Die dekodierung des Strings wird von der
+SSL Bibliothek übernomen.
+
+Der Emailclient Mozilla Thunderbird hält sich leider nicht an den Standard und
+sendet \texttt{AUTH PLAIN} und des String mit den Nutzerdaten in einer Zeile.
+Dies machte eine Ausnahmebehandlung notwendig, in welcher überprüft wird, ob die
+Eingabe, in der \texttt{AUTH PLAIN} erwartet wird länger ist als der String
+\texttt{"`AUTH PLAIN"'}. Ist dies der Fall, so wird angenommen, das danach die
+Nutzerdaten folgen. Die Eingabe nach dem \texttt{AUTH PLAIN} plus ein
+Leerzeichen wird also an die Funktion zum Überprüfen der Nutzerdaten übergeben.
+
+Die Steuerkommandos des SMTP Protokolls werden stets Case-Insensitiv überprüft.
+Zudem werden bei Kommandos mit Argumenten die Leerzeichen zwischen dem Kommando
+und dem Argument entfernt. Schlägt die Überprüfung eines erwarteten Kommandos
+fehl, so wird geprüft ob eines der wahlfrei in der Sitzung verwendbaren
+Kommandos (z.b. \texttt{RSET}, \texttt{QUIT} oder \texttt{NOOP}). aufgetreten
+sind und werden bei Auftreten entsprechend behandelt.
+
+Die in der Sitzung angegebenen Emailaddressen für den Empfänger und den Absender
+werden direkt nach dem jeweiligen Empfang geprüft. Geprüft wird, ob der Teil vor
+dem @ mindestens 2 Zeichen lang ist und ob der Teil nach dem @ ein existierender
+Hostname ist oder es einen MX Record dazu gibt. 
+
+Bei den Empfängeraddressen wird zudem geprüft, ob die Addresse lokal existiert.
+Ist dies der Fall, so wird die Email nach der Annahme an die entsprechende
+lokale Mailbox ausgeliefert. Ist die Addresse nicht-lokal, so wird die Elail an
+das Forward Modul übergeben, welches sie an den entsprechenden Mailserver
+weiterleitet.
+
 \subsection{Forward}
 \subsection{Pop3}
 \subsection{Ssl}
