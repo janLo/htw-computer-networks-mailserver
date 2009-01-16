@@ -358,6 +358,31 @@ lokale Mailbox ausgeliefert. Ist die Addresse nicht-lokal, so wird die Elail an
 das Forward Modul übergeben, welches sie an den entsprechenden Mailserver
 weiterleitet.
 
+Die MX Records zu den Emailaddressen werden von dem Resolver der libc aufgelöst.
+Dies hat den Vorteil, das keine weiteren Bibliotheken auf dem System vorhanden
+sein müssen. Leider ist dieser Teil der Bibliothek nicht gut dokumentiert, so
+das zur Implementation der MX-Record-Auflösefunktion der Code des ClamAV
+Virenscanners als Beispiel zur Hilfe genommen wurde. Der resultierende Code
+sieht auf den ersten Blick etwas kompliziert aus, dies liegt jedoch nur an der
+komplizierten Verarbeitung eines Auflöseresultats. Die Funktion ermittelt
+lediglich den ersten MX Record zu einem namen. Dies sollte in der Regel
+ausreichen. An sonsten möchte ich an dieser Stelle auf den Beispielcharakter der
+Anwendung hinweisen, welcher explizit gefordert wurde.
+
+Der eigentliche Datenblock der Mail wird Zeilenweise eingelesen und in einer
+einfach gelinkten Liste abgelegt. Dies gat den Vorteil, das kein kompliziertes
+Speichermanagement notwendig ist, obwohl man zu Beginn noch nicht weiß wie groß
+der momentane Datenblock wird. Vor dem lokalem Ausliefern oder der Übergabe an
+das Forward Modul werden dann alle Zeilen in einen einzigen Speicherblock
+geschrieben. Dies ist relativ einfach, da zu jedem Zeilenelement in der Liste
+die Länge der Zeile gespeichert wird. Es muss also nur durch die Liste iteriert,
+die Größen addiert und ein Speicherblock mit der entsprechenden Größe allokiert
+werden. Anschließend wird erneut über die Liste iteriert und die einzelnen
+Zeilendaten mittels \texttt{memcpy} in den Puffer kopiert. Auch hier ist die
+jeweils zu der Zeile gespeicherte Länge wieder hilfreich, da so der offset für
+das Kopieren einfach durch Addition der Längen zu berechnen ist.
+
+
 \subsection{Forward}
 \subsection{Pop3}
 \subsection{Ssl}
