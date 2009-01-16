@@ -370,21 +370,48 @@ ausreichen. An sonsten möchte ich an dieser Stelle auf den Beispielcharakter de
 Anwendung hinweisen, welcher explizit gefordert wurde.
 
 Der eigentliche Datenblock der Mail wird Zeilenweise eingelesen und in einer
-einfach gelinkten Liste abgelegt. Dies gat den Vorteil, das kein kompliziertes
+einfach gelinkten Liste abgelegt. Dies hat den Vorteil, das kein kompliziertes
 Speichermanagement notwendig ist, obwohl man zu Beginn noch nicht weiß wie groß
-der momentane Datenblock wird. Vor dem lokalem Ausliefern oder der Übergabe an
-das Forward Modul werden dann alle Zeilen in einen einzigen Speicherblock
-geschrieben. Dies ist relativ einfach, da zu jedem Zeilenelement in der Liste
-die Länge der Zeile gespeichert wird. Es muss also nur durch die Liste iteriert,
-die Größen addiert und ein Speicherblock mit der entsprechenden Größe allokiert
-werden. Anschließend wird erneut über die Liste iteriert und die einzelnen
-Zeilendaten mittels \texttt{memcpy} in den Puffer kopiert. Auch hier ist die
-jeweils zu der Zeile gespeicherte Länge wieder hilfreich, da so der offset für
-das Kopieren einfach durch Addition der Längen zu berechnen ist.
+der momentane Datenblock wird. Vor dem lokalem Ausliefern werden dann alle 
+Zeilen in einen einzigen Speicherblock geschrieben. Dies ist relativ einfach, 
+da zu jedem Zeilenelement in der Liste die Länge der Zeile gespeichert wird. 
+Es muss also nur durch die Liste iteriert, die Größen addiert und ein 
+Speicherblock mit der entsprechenden Größe allokiert werden. 
+Anschließend wird erneut über die Liste iteriert und die einzelnen Zeilendaten 
+mittels \texttt{memcpy} in den Puffer kopiert. Auch hier ist die jeweils zu der 
+Zeile gespeicherte Länge wieder hilfreich, da so der offset für das Kopieren 
+einfach durch Addition der Längen zu berechnen ist. 
+An das Forward Modul zum weiterleiten der Email wird die komplette Zeilenliste
+übergeben.
+Beendet wird der Datenblock wie im Standard beschrieben mit
+\texttt{<CR><LF>.<CR><LF>}. Wird diese Sequenz gefunden wird die annahme der
+Daten beendet und die Mail sofort an das Forward Modul übergeben oder lokal
+ausgeliefert.
+
+Nach der Auslieferung oder Weiterleitung einer Mail wird die Sitzungsstruktur
+sofort wieder bereinigt und kann eine weilere Email entgegen nehmen. Beendet
+wird die Sitzung mit einem \texttt{QUIT} des Clients. Nach einem Quit baut das
+Connection Modul die Verbindung ab und lässt das SMTP Modul mit Hilfe der 
+Aufräum Callback-Funktion die Sitzungsstruktur leeren und freigeben.
 
 
 \subsection{Forward}
+Das Forward Modul dient der Weiterleitung einer Email. Es bekommt Emails vom
+SMTP Modul übergeben, welche nicht lokal ausgeliefert werden können. Der
+Datenblock wird als eine Liste von Zeilen übergeben, welche das Modul in seine
+eigene \texttt{fwd\_mail}-Struktur kopiert, damit es nach dem Freigeben des
+Speichers in dem SMTP Modul nicht zu Problemen kommt.
+
+Noch vor dem Kopieren wird jedoch der Host ermittelt, an welchen die Email
+weitergeleitet werden soll und mittels \texttt{conn\_new\_fwd\_socket()} aus dem
+Connection Modul eine Verbindung zu diesem aufgebaut. Zudem reiht diese Funktion
+die neu generierte Verbindung in die Socketliste des Connection Moduls ein und
+setzt die nötigen Callback-Funktionen.
+
+
 \subsection{Pop3}
+
+
 \subsection{Ssl}
 
 \chapter{Benutzung}
