@@ -408,6 +408,30 @@ Connection Modul eine Verbindung zu diesem aufgebaut. Zudem reiht diese Funktion
 die neu generierte Verbindung in die Socketliste des Connection Moduls ein und
 setzt die nötigen Callback-Funktionen.
 
+Wenn die Verbindung aufgebaut und \texttt{fwd\_mail}-Struktur initialisiert ist,
+ist die Übergabe an das Forward Modul abgeschlossen. Die weiteren Aktivitäten
+werden durch Eingaben des Clients gesteuert, welche durch das Connection Modul
+an das Forward Modul übergeben werden.
+
+Da das Forward Modul, wie das SMTP Modul ebenfalls eine SMTP Sitzung
+durchführt, muss auch dieses den Momentanen Status der Verbindung speichern.
+Dies geschiet in der bereits angesprochenen \texttt{fwd\_mail}-Struktur. Das
+jeweils zu Sendende Kommando wird dann aus dem aktuellen Status und dem letzten
+Replycode des Mailservers, an den die Email weitergeleitet werden soll,
+bestimmt.
+
+Kommt es zu einem Fehler, welcher sich nicht einfach durch erneutes Senden der
+letzten Nachricht beheben lässt, so wird der Sendevorgang abgebrochen und eine
+Email mit der Fehlernachticht und dem Inhalt der Originalemail an den Absender
+verschickt. Die Funktion zum Weiterleiten einer Email hat dabei ein Argument
+namens \texttt{failable}, welches anzeigt, ob diese eben genannte Mail versendet
+werden soll oder nicht. Dies ist notwendig, damit es nicht zu einer Fehleremail
+auf einen fehlgeschlagenen Sendevorgang einer Fehleremail kommt.
+
+Nach einem Sendevorgang wird ein \texttt{QUIT} an den Mailserver gesedet und
+gewartet, das das Connection Modul die Verbindung abbaut und die
+\texttt{fwd\_mail}-Struktur aus dem Speicher bereinigt.
+
 
 \subsection{Pop3}
 
