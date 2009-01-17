@@ -246,6 +246,7 @@ werden soll oder nur deinitialisiert. Beim ordnungsgemäßen Schließen werden i
 Gegensatz zum einfachen deinitialisieren alle als gelöscht markierten Emails 
 aus der Datenbank gelöscht.
 
+
 \subsection{Connection}
 Dieses Modul ist das Zentralste in der ganzen Anwendung. Es verwaltet Alle
 Verbindungen und verteilt die empfangenen Daten. Zum Start der Anwendung muss
@@ -269,7 +270,7 @@ entsprechende Callback-Funktion aufgerufen.
 Diese Funktionen lesen dann je nach Verbindungstyp Daten vom Client und
 übergeben diese an das entsprechende Modul oder akzeptieren eine neue Verbindung
 und initialisieren diese.
-Beim lese der Daten ist zu beachten, das diese nach Zeilen getrennt an die
+Beim lesen der Daten ist zu beachten, das diese nach Zeilen getrennt an die
 entsprechenden Module übergeben werden. Bei SSL Verbindungen wiederum wird das
 SSL Modul benutzt um die Daten zu lesen, bzw. nach einem erfolgreichem 
 \texttt{accept()} einer neuen Verbindung der SSL Handshake durchgeführt.
@@ -297,7 +298,7 @@ zu einem weiterem Mailserver oder einem Mailrelay. Diese neuen Verbindungen
 werden anschließend wie normale Client Verbindungen in die Liste der Sockets
 eingereiht.
 
-Am ende des Programmes wird von \texttt{main()} die Funktion 
+Am Ende des Programmes wird von \texttt{main()} die Funktion 
 \texttt{conn\_close()} aufgerufen. Diese wird auch als Signalhandler für alle
 Signale die ein Ende des Programmes andeuten gesetzt. Sie geht die Liste der
 Sockes durch und baut alle Verbindungen ordnungsgemäß ab.
@@ -434,9 +435,109 @@ gewartet, das das Connection Modul die Verbindung abbaut und die
 
 
 \subsection{Pop3}
+Im Pop3 Modul ist, wie der Name schon sagt, das Pop3 Protokoll (rfc1939)
+implementiert. Über das Pop3 Protokoll kann ein Client die Emails aus einer
+lokalen Mailbox abrufen sowie sich Metadaten dazu anzeigen lassen.
 
+Eine Pop3 Sitzung muss immer Authentifiziert werden, da sie immer mit der
+Mailbox eines bestimmten Nutzers arbeitet. Zudem ist eine Pop3 Sitzung in drei
+Abschnitte unterteilt, welche durch einen Status repräsentiert werden. Die drei
+Zustände sind:
+\begin{description}
+    \item[\texttt{AUTH}] Repräsentiert eine nicht-authentifizierte Sitzung.
+    \item[\texttt{START}] Repräsentiert eine laufende authentifizierte Sitzung.
+    \item[\texttt{QUIT}] Repräsentiert eine beendete Sitzung.	
+\end{description}
+Alle Zustände sowie die Mailbox- und Nutzer-Daten werden in einer
+\texttt{pop3\_session}-Struktur gespeichert und stehen damit über die gesammte
+Sitzung zur Verfügung. 
+
+Zur Authentifizierung sendet der Client zu Beginn seiner Sitzung die zwei 
+Kommandos \texttt{USER <Nutzername>} und \texttt{PASS <Passwort>} senden muss.
+Nach Empfang des Nutzernames wird dieser mit Hilfe des Config Moduls geprüft. 
+Wenn er existiert wird eine Positive Antwort gesendet. Anschließend wird 
+geprüft, ob das Passwort valide ist. War diese Prüfung erfolgreich, so wird 
+versucht die Mailbox des Nutzers zu sperren. Das heißt, es wird in der 
+Nutzerliste des Config Moduls das Sperrflag des Nutzers gesetzt. Dies ist 
+nötig, da die Pop3 Implementierung nur eine gleichzeitige Sitzung erlaubt. 
+War das Prüfen und Sperren erfolgreich, wird eine positive Antwort gesendet und
+der \texttt{START} Status gesetzt.
+Alle Kommandos die nicht im rfc1939 im AUTHORIZATION State definiert sind und
+nicht \texttt{USER} oder \texttt{PASS} sind werden mit einem \texttt{-ERR}
+quittiert.
+
+Im \texttt{START} Status kann der Client wahlfrei alle Kommandos benutzen,
+welche laut rfc1939 als Mindestanforderung definiert sind. Zusätzlich wurde das
+optionale Kommando \texttt{UIDL} Implementiert, da ohne \texttt{UIDL} oder
+\texttt{TOP} der Emailclient Mozilla Thunderbird nicht in der Lage ist Emails
+mit dem vorliegendem Programm abzurufen. Alle anderen, nicht implementierten
+Kommandos werden mit einem einfachem \texttt{-ERR} Quittiert. 
+
+Die Implementierungen der einzelnen Kommandos wurden so umgesetzt, das sie den
+Standard rfc1939 so gut wie möglich umsetzen. Für details zur Funktionsweise
+oder Benutzung der einzelnen Kommandos möchte ich daher auf den Standard 
+rfc1939 verweisen.
+
+Der \texttt{QUIT} Zustand zeigt an, das die Sitzung beendet wurde. Er wird nur
+zwischen einem \texttt{QUIT} des Clients und dem Abbau der Verbindung
+angenommen. Nach einem ordnungsgemäßem \texttt{QUIT} werden alle zum Löschen
+markierten Emails der Mailbox gelöscht. Dem Connection Modul wird mittgeteilt,
+das es die Verbindung abbauen und die Callback-Funktion zum Aufräumen der
+\texttt{pop3\_session}-Struktur aufrufen kann.
+
+Die möglichen Kommandos der einzelnen Zustände sind als Array von
+\texttt{pop3\_command}-Strukturen abgelegt. Diese Strukturen bestehen immer aus
+einem Kommando, einer aufzurufenden Funktion und einem Flag, ob für die Funktion
+ein Argument aus der Nachricht des Clients extrahiert werden soll oder nicht.
+Das letzte Element dieser Arrays besteht immer aus \texttt{NULL}. Dies hat den 
+Vorteil, das zum Parsen des Kommandos nur das Array durchlaufen und die 
+Kommandos mit der Nachricht des Clients verglichen werden müssen. Wurde eine
+Übereinstimmung festgestellt kann die zugeordnete Funktion direkt aufgerufen
+werden.
+
+Für das Schreiben der Antworten zum Client wird beim Initialisieren der
+\texttt{pop3\_session}-Struktur eine extra Callback-Funktion aus dem Connection
+Modul gesetzt. Dies ist nötig, da so transparent SSL und nicht-SSL Verbindungen
+bedient werden können. Mit diesem Vorgehen könnte auch das Smtp Modul problemlos
+um SmtpS Funktionalitäten erweitert werden.
 
 \subsection{Ssl}
+Das Ssl Modul stellt alle Funktionen zur Kommunikation mit Clients über eine SSL
+Verbindung bereit. Es arbeitet vollkommen unabhängig vom verwendetrm
+Anwendungsprotokoll. Die Konfigurationen, wie der Name der Zertifikatdatei, etc
+stehen momentan fest im Code. Dies ist mit der vorhandenen Infrastruktur des
+Config Moduls bei Bedarf problemlos als Kommandozeilenoption umsetzbar. Für
+diese Anwendung mit Beispielcharakter soll die feste Codierung jedoch genügen.
+
+Zu Beginn der Anwendung muss das Ssl Modul initialisiert werden. Dabei wird ein
+SSL-Kontext (\texttt{SSL\_CTX}) erstellt und mit den richtigen Optionen
+initialisiert. Dies minimiert den Aufwand bei späteren SSL Verbindungen, bei
+denen lediglich der einmal erstellte Kontext benutzt wird.
+
+Ist der Kontext initialisiert können neue Client Verbindungen durch einen SSL
+Handshake aufgebaut werden. Dies geschieht durch die Funktion
+\texttt{ssl\_accept\_client()}, welche lediglich einen Dateidescriptor bekommt,
+welcher den Socket zum Client darstellt. Zurückgegeben wird ein Pointer auf eine
+\texttt{SSL}-Struktur. Diese ird im späterem Verlauf der Verbindung benötigt um
+Daten vom Client zu lesen oder zu ihm zu senden.
+
+Das Lesen und Senden von Daten geschieht über die Funktionen \texttt{ssl\_read()}
+sowie \texttt{ssl\_write()}. Diese werden ähnlich wie die libc Funktionen
+\texttt{read()} und \texttt{write()} aufgerufen, bekommen jedoch immer den
+zugeordneten \texttt{SSL}-Struktur-Pointer. Auc die Rückgabewerte der Funktionen
+sind ähnlich der der libc Funktionen.
+
+Am Bnde einer SSL verbindung muss zusätzlich zum normalen \texttt{close()} noch
+ein \\
+\texttt{ssl\_quit\_client()} aufgerufen werden, um (vor dem Close) die SSL
+Verbindung ordnungsgemäß zu beenden. Dies wird durch das 
+\texttt{socket\_is\_ssl} Flag in der \texttt{mysocket} Struktur der Verbindung
+im Connection Modul realisiert. Dieses Flag wird von der Funktion, welche im
+Connection Modul für das Abbauen von Verbindungen zuständig ist ausgewertet.
+Wenn die gesammte Anwendung beendet wird muss der SSL Kontext mit
+\texttt{ssl\_app\_destroy()} wieder aufgeräumt werden. 
+
+
 
 \chapter{Benutzung}
 
