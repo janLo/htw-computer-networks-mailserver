@@ -94,6 +94,28 @@ Folgende zusätzliche Fahten zur Aufgabenstellung wurden erfragt:
 
 
 \chapter{Umsetzung}
+\section{Allgemein}\label{sec:umsetzung-allgemein}
+Mit dieser Anwendung wurde ein rudimentärer Mailserver implementiert, welcher
+SMTP und POP3 Funktionalitäten besitzt. Zudem besitzt er die Fähigkeit, über SSL
+Verschlüsselte Verbindungen mit POP3 Clients zu sprechen.
+
+Es gibt jedoch Einschränkungen, was die Geschwindigkeit und Sicherheit der 
+Anwendung angeht, die durch die Aufgabenstellung bereits vorgegeben sind.
+So werden alle Anfragen und Sitzungen in nur einem Thread abgehandelt. Es kann
+also zu Verzögerungen kommen, wenn der Server z.B. gerade auf einen DNS 
+Timeout wartet o.ä. Zudem wirken sich eventuelle Speicherüberläufe und 
+Angriffe, welche diese ausnutzen auf den gesammten Server mit allen 
+Verbindungen aus, da alle Sitzungen in nur einem Addressraum ablaufen.
+Durch eine Aufteilung in unterschiedliche Addressräume durch \texttt{fork()}, 
+wie es in vielen Mailservern praktiziert wird, kännte man dieses Problem lösen.
+Zudem umgeht man damit das Problem der Verzögerung aller Verbindungen wenn eine
+durch warten auf einen Timeout blokiert ist.
+
+Da diese Implementation jedoch nur Beispielcharakter besitzen soll sind diese
+Nachteile vertretbar. Es wird jedoch ausdrücklich darauf hingewiesen, das der
+Server nicht für den Produktiveinsatz geeignet ist.
+
+
 \section{Module}
 Bei der Planung wurde festgestellt, das eine Aufteilung der funktionalen
 Bestandteile des Programmes auf verschiedene getrennte und nur über definierte
@@ -501,6 +523,7 @@ Modul gesetzt. Dies ist nötig, da so transparent SSL und nicht-SSL Verbindungen
 bedient werden können. Mit diesem Vorgehen könnte auch das Smtp Modul problemlos
 um SmtpS Funktionalitäten erweitert werden.
 
+
 \subsection{Ssl}
 Das Ssl Modul stellt alle Funktionen zur Kommunikation mit Clients über eine SSL
 Verbindung bereit. Es arbeitet vollkommen unabhängig vom verwendetrm
@@ -542,6 +565,12 @@ Wenn die gesammte Anwendung beendet wird muss der SSL Kontext mit
 \chapter{Benutzung}
 
 \section{Allgemein}
+Das vorliegende Programm kann als rudimentärer Mailserver verwendet werden.
+Dabei implementiert es die Funktionalitäten eines Mailservers, eines Mailrelays
+und eines POP3 Servers, welcher zusätzlich noch SSL-verschlüsselte Verbindungen
+beherrscht. Es gelten jedoch einige Aufgabenbedignte Einschränkungen, welche
+unter \ref{sec:umsetzung-allgemein} aufgeführt sind.
+
 \section{Optionen}
 
 \pagebreak
