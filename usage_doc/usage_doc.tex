@@ -86,9 +86,9 @@ Folgende zusätzliche Fahten zur Aufgabenstellung wurden erfragt:
   \item SMTPS soll nicht implementiert werden.
   \item Die Ein/Ausgabe kann blockierend erfolgen.
   \item Der Mailheader muss nicht geparst werden, auch eine Extraktion von
-        Mailaddressen muss nicht erfolgen.
+        Mail Adressen muss nicht erfolgen.
   \item Mailrelay soll nur bei authentifiziertem ESMTP möglich sein.
-  \item Die Zustellung lokaler Mails ist ohne authehtifizierung möglich. 
+  \item Die Zustellung lokaler Mails ist ohne Authentifizierung möglich. 
 \end{itemize}
 
 
@@ -104,12 +104,12 @@ Anwendung angeht, die durch die Aufgabenstellung bereits vorgegeben sind.
 So werden alle Anfragen und Sitzungen in nur einem Thread abgehandelt. Es kann
 also zu Verzögerungen kommen, wenn der Server z.B. gerade auf einen DNS 
 Timeout wartet o.ä. Zudem wirken sich eventuelle Speicherüberläufe und 
-Angriffe, welche diese ausnutzen auf den gesammten Server mit allen 
-Verbindungen aus, da alle Sitzungen in nur einem Addressraum ablaufen.
-Durch eine Aufteilung in unterschiedliche Addressräume durch \texttt{fork()}, 
-wie es in vielen Mailservern praktiziert wird, kännte man dieses Problem lösen.
+Angriffe, welche diese ausnutzen auf den gesamten Server mit allen 
+Verbindungen aus, da alle Sitzungen in nur einem Adressraum ablaufen.
+Durch eine Aufteilung in unterschiedliche Adressräume durch \texttt{fork()}, 
+wie es in vielen Mailservern praktiziert wird, könnte man dieses Problem lösen.
 Zudem umgeht man damit das Problem der Verzögerung aller Verbindungen wenn eine
-durch warten auf einen Timeout blokiert ist.
+durch warten auf einen Timeout blockiert ist.
 
 Da diese Implementation jedoch nur Beispielcharakter besitzen soll sind diese
 Nachteile vertretbar. Es wird jedoch ausdrücklich darauf hingewiesen, das der
@@ -119,8 +119,8 @@ Server nicht für den Produktiveinsatz geeignet ist.
 \section{Module}
 Bei der Planung wurde festgestellt, das eine Aufteilung der funktionalen
 Bestandteile des Programmes auf verschiedene getrennte und nur über definierte
-Schnittstellen kommunizierende Module sinvoll ist. So können Fehler lokal
-begrenzt und schneller gefunden werden. Auch seiteneffekte einer späteren 
+Schnittstellen kommunizierende Module sinnvoll ist. So können Fehler lokal
+begrenzt und schneller gefunden werden. Auch Seiteneffekte einer späteren 
 Problembehebung können somit auf das bearbeitete Modul begrenzt werden, solang
 die Schnittstelle zu den anderen Modulen gleich bleibt. 
 
@@ -131,7 +131,7 @@ Diese Modulaufteilung ist in C leider nur rudimentär umsetzbar, da es keine
 echte Kapselung funktionaler Einheiten oder gar Namensräume gibt. Die Wahl einer
 anderen Programmiersprache, wie z.B. C++ hätte dies wesentlich vereinfacht und
 zusätzlich noch für besser lesbaren Code gesorgt. Auch die Typsicherheit und
-eine damit einhergehende Reduzierung der Fehlerwarscheinlichkeit in der
+eine damit einhergehende Reduzierung der Fehlerwahrscheinlichkeit in der
 Implementation wären in vielen anderen Sprachen besser gewesen.
 
 Die aus der Aufgabenstellung abgeleiteten Funktionalitäten, welche jeweils in
@@ -149,14 +149,14 @@ Header-Dateien definiert.
   Modul       & Funktionalität \\
   \hline\hline
   config      & Hier geschieht die Konfiguration des Servers (auswerten der
-                Kommandozeilenparameter) und die bereitstellung der 
-		Konfigurtionsdaten für die anderen Module.\\
+                Kommandozeilen-Parameter) und die Bereitstellung der 
+		Konfigurationsdaten für die anderen Module.\\
   connection  & Dieses Modul ist für alle Operationen zuständig die direkt mit
                 der Verbindung zu tun haben. Dies ist das Annehmen neuer
-		Verbindugen, das aufsetzen der listening Sockets, das Lesen der
+		Verbindungen, das aufsetzen der listening Sockets, das Lesen der
 		Daten vom Client, das Warten auf Daten von den Clients und das
 		Schreiben von Daten zu den Clients.\\
-  fail        & Ausgabe und behandlung von Fehlern.\\
+  fail        & Ausgabe und Behandlung von Fehlern.\\
   forward     & Das forward Modul wird benutzt um eine Mail, welche nicht an
                 eine lokale Mailbox ausgeliefert wird, an den betreffenden
 		Mailserver weiterzuleiten.\\
@@ -166,11 +166,11 @@ Header-Dateien definiert.
 		werden.\\
   main        & Dies ist das Start-Modul, in welchem die 
                 \texttt{main()}-Funktion deklariert ist. Diese koordiniert die
-		initialisierungen, den Start der Hauptschleife sowie das
+		Initialisierungen, den Start der Hauptschleife sowie das
 		Aufräumen am Programmende.\\
-  pop3        & In diesem Modul sind alle funktionen gekapselt, die zur
+  pop3        & In diesem Modul sind alle Funktionen gekapselt, die zur
                 Implementation des POP3 Protokolls benötigt werden.\\
-  smtp        & In diesem Modul sind alle funktionen gekapselt, die zur
+  smtp        & In diesem Modul sind alle Funktionen gekapselt, die zur
                 Implementation des SMTP/ESMTP Protokolls benötigt werden.\\
   ssl         & Dieses Modul dient zur Behandlung con SSL Verbindungen, welche
                 für POP3S benötigt werden.\\
@@ -179,41 +179,41 @@ Header-Dateien definiert.
 \vspace{3mm}
 
 Nachfolgend wird die Implementierung der einzelnen Module genauer beschrieben.
-Dies wird über einen Groben Überglick jedoch nicht hinauskommen. Daher bitte ich
-den Leser, bei konkreten Fragen zur Implementation die aus dem Code nittels
+Dies wird über einen Groben Überblick jedoch nicht hinauskommen. Daher bitte ich
+den Leser, bei konkreten Fragen zur Implementation die aus dem Code mittels
 Doxygen generierte Dokumentation zur Hilfe zu nehmen. 
 
 
 \subsection{Config}
-Dieses Modul wird zum Start des Programs von der \texttt{main()}-Funktion
-genutzt um die Kommandozeilenargumente zu parsen und zu verarbeiten. Dabei
-werden intern modul-globale variablen auf die per Kommandozeile übergebenen
+Dieses Modul wird zum Start des Programms von der \texttt{main()}-Funktion
+genutzt um die Kommandozeilen-Argumente zu parsen und zu verarbeiten. Dabei
+werden intern Modul-globale variablen auf die per Kommandozeile übergebenen
 Werte gesetzt. 
 
 Zudem wird die CSV Datei mit den Nutzernamen und Passwörtern eingelesen und die
 Daten in einer einfach gelinkten Liste abgelegt. Diese Liste speichert zudem den
 Status der Mailbox des Nutzers (locked oder nicht). Der Name des Nutzers ist
-gleichzeitig der Teil vor dem \texttt{@} seiner Mailadresse. Der Teil dahinter
+gleichzeitig der Teil vor dem \texttt{@} seiner Emailadresse. Der Teil dahinter
 setzt sich aus dem per Kommandozeile angegebenem Hostnamen zusammen. Ist kein
 Hostname angegeben, so besitzt der Nutzer \texttt{<Nutzername>@localhost} als
-Mailaddresse.
+Emailadresse.
 
 Die in diesem Modul gespeicherten Werte können über klare Schnittstellen, welche
 in der Headerdatei definiert sind, jederzeit von anderen Modulen abgefragt
 werden.
 
 Das Modul besitzt außerdem Funktionen zum Prüfen, ob ein Nutzer existiert, ob
-ein Passwort korrekt ist und ob die Mailbox des Nuters grad gesperrt ist oder
+ein Passwort korrekt ist und ob die Mailbox des Nutzers grad gesperrt ist oder
 nicht.
 
 
 \subsection{Mailbox}
-Im Mailbox Modul ist, wie der Name schon sagt, alles implementiert, was für kdie
+Im Mailbox Modul ist, wie der Name schon sagt, alles implementiert, was für die
 lokalen Mailboxen von Nöten ist. Die Mailboxen selbst sind mittels SQLITE
-realisiert. Dazu besteht eine SQLITE Datenbankdatei, in welcher eine Tabelle
+realisiert. Dazu besteht eine SQLITE Datenbank-Datei, in welcher eine Tabelle
 Existiert. In dieser Tabelle werden alle Mails mit dem Nutzernamen, dem die
 Mailbox gehört, sowie einem eindeutigem Bezeichner (eine Zahl, welche bei jeder
-neuen Mail um eins erhöht wird) und der größe der Mail abgelegt.
+neuen Mail um eins erhöht wird) und der Größe der Mail abgelegt.
 
 Diese Ablage in einer SQLITE Datenbank hat den Vorteil, das man sich um die
 Zuordnungen der Mails zur jeweiligen Mailbox, um das Lesen und Schreiben der
@@ -225,8 +225,8 @@ Implementierung dieser Funktionalitäten aufgrund der kurzen Zeit sicher nicht
 optimal wären.
 
 Das Mailbox Modul muss zu beginn des Programmes initialisiert werden, um eine
-ordnungsgemäße "`Verbindung"' zur Datenbankdatei aufbauen zu können. Am ende der
-Anwendung ist dann ein Deinitialisieren nötig, um die Datei wieder zu
+ordnungsgemäße "`Verbindung"' zur Datenbank-Datei aufbauen zu können. Am ende der
+Anwendung ist dann ein de-initialisieren nötig, um die Datei wieder zu
 schliessen.
 
 Nach der Initialisierung des Moduls können nach belieben neue Emails in die
@@ -235,9 +235,9 @@ Mailboxen geschrieben werden. Dazu dient lediglich die Funktion
 übergeben bekommt.
 
 Zum Auslesen von Emails, bzw. Extraktion von Metadaten ist ein weiterer Schritt
-der Mailboxinitialisierung notwendig. Zu jeder Mailbox sollte jeweils nur
+der Mailbox-Initialisierung notwendig. Zu jeder Mailbox sollte jeweils nur
 maximal ein initialisiertes Exemplar bestehen, da bei der Initialisierung alle
-Metadaten der Mailbox eingelesen und wärend der Benutzung nicht mehr
+Metadaten der Mailbox eingelesen und während der Benutzung nicht mehr
 aktualisiert werden. Gibt es zu einer Mailbox gleichzeitig zwei initialisierte
 Instanzen kann es zu Inkonsistenzen kommen, welche Programmfehler verursachen.
 Dies ist jedoch ein vertretbarer Nachteil, da das Zugreifende Modul (POP3)
@@ -245,27 +245,27 @@ mittels locking nur eine Verbindung pro Nutzer zu einer bestimmten Zeit zulässt
 Dies ist notwendig, da das Protokoll (rfc1939) es so vorsieht.
 
 Bei der Initialisierung wird eine neue \texttt{mail}-Struktur erstellt und mit
-Daten gefüllt. Dies ist unter anderem eine Liste mit zuordnungen, welche jeder
+Daten gefüllt. Dies ist unter anderem eine Liste mit Zuordnungen, welche jeder
 Mail mit ihrem eindeutigem Bezeichner eine fortlaufende Nummer in der Mailbox
 zuordnet. Über diese Nummern kann anschließend über die Schnittstellen auf
 bestimmte Mails zugegriffen werden. Dies ist notwendig, da die Mails in einer
 POP3 Mailbox durchnummeriert sind und die Zählung bei 1 beginnt. Zusätzlich wird
 zu jeder Mail die Größe gespeichert welche aufaddiert in der Struktur noch als
-Gesammtgröße gespeichert werden.
+Gesamtgröße gespeichert werden.
 
 Ist diese Initialisierung abgeschlossen kann über die Schnittstellen auf die
-Emails in der Mailbox, sowie deren Metadaten zugegrifen werden. Beim Löschen der
+Emails in der Mailbox, sowie deren Metadaten zugegriffen werden. Beim Löschen der
 Mails ist zu beachten, das dies, wie im POP3 Protokoll benötigt, nicht sofort
 geschieht. Die betreffenden Mails bekommen in der oben genannten Liste vorerst
 nur eine Markierung, das sie zum Löschen vorgesehen sind. erst beim
-Deinitialisieren (Schließen) der Mailbox können diese gelöscht werden.
+de-initialisieren (Schließen) der Mailbox können diese gelöscht werden.
 Zusätzlich können die Löschmarkierungen jederzeit zurückgesetzt werden.
 
-Nach der Benutzung einer Mailbox muss diese wieder deinitialisiert (geschlossen
-werden. Die Funktion zur Deinitialisierung (mbox\_close()) besitzt ein Flag als
+Nach der Benutzung einer Mailbox muss diese wieder de-initialisiert (geschlossen
+werden. Die Funktion zur De-Initialisierung (mbox\_close()) besitzt ein Flag als
 Argument (has\_quit), welches anzeigt, ob die Mailbox ordnungsgemäß geschlossen
-werden soll oder nur deinitialisiert. Beim ordnungsgemäßen Schließen werden im
-Gegensatz zum einfachen deinitialisieren alle als gelöscht markierten Emails 
+werden soll oder nur de-initialisiert. Beim ordnungsgemäßen Schließen werden im
+Gegensatz zum einfachen de-initialisieren alle als gelöscht markierten Emails 
 aus der Datenbank gelöscht.
 
 
@@ -277,7 +277,7 @@ welche auf den angegebenen Ports auf Client Verbindungen warten geöffnet und
 gebunden. Die Verbindungen werden jeweils in einer \texttt{mysocket}-Struktur
 gekapselt. In dieser Struktur befinden sich alle Daten die zu der jeweilige
 Verbindung gehören. Dies sind verschiedene Callback-Funktionen zum Verarbeiten
-der Daten und die Daten der selbst. Die Daten einer verbindung sind in erster
+der Daten und die Daten der selbst. Die Daten einer Verbindung sind in erster
 Linie die Session Strukturen der Client Verbindungen, welche zum Beispiel den
 Status einer SMTP Verbindung oder die Mailbox einer POP3 Verbindung enthalten.
 
@@ -308,7 +308,7 @@ Callback-Funktionen der jeweiligen Listening-Verbindung gesetzt, so das sie
 automatisiert aufgerufen werden können wenn eine neue Verbindung entsteht.
 
 Beim Schließen von Verbindungen wird die zugeordnete Callback-Funktion der
-Verbindung zum Aufräumen der Sitzungsdate aufgerufen. Diese sind ebenfalls in
+Verbindung zum Aufräumen der Sitzungsdaten aufgerufen. Diese sind ebenfalls in
 den drei Modulen Pop3, Smtp und Forward definiert. Dieser Aufruf passiert in der
 Funktion, welche die \texttt{mysocket}-Strukturen aus der Liste der Sockets
 entfernt und die Sockets schliesst (\texttt{conn\_delete\_socket\_elem()}).
@@ -330,11 +330,11 @@ Sockes durch und baut alle Verbindungen ordnungsgemäß ab.
 Dieses Modul implementiert das SMTP (rfc 5321) Protokoll mit einigen ESMTP 
 Erweiterungen. Normale SMTP Sitzungen werden mit \texttt{HELO} Eingeleitet und
 sind auf das ausliefern von Emails an lokale Mailboxen begrenzt. Jeder Versuch
-eine Email an eine nicht-lokale Addresse zu senden wird mit einem Fehler
+eine Email an eine nicht-lokale Adresse zu senden wird mit einem Fehler
 quittiert. ESMTP Sitzungen werden mit einem \texttt{EHLO} des Clients
 eingeleitet. ESMTP Sitzungen müssen stets Authentifiziert werden. In
-Authentifizierten ESMTP Sitzungen können auch Emails an nicht-lokale Addressen
-versand werden. Diese werden dann mittels des Forward-Moduls an den betreffenden
+Authentifizierten ESMTP Sitzungen können auch Emails an nicht-lokale Adressen
+versandt werden. Diese werden dann mittels des Forward-Moduls an den betreffenden
 Mailserver oder einen angegebenen Relayhost weitergeleitet.
 
 Da SMTP/ESMTP Sitzungen stark Statusbehaftet sind muss in der Sitzungsstruktur,
@@ -348,12 +348,12 @@ Die Authentifizierung geschieht per \texttt{AUTH PLAIN}, welches der einzige
 implementierte Authentifizierungsmechanismus ist. Bei \texttt{AUTH PLAIN}
 schickt der Cient lt. Standard nach einem \texttt{AUTH PLAIN} einen Base64
 kodierten String von der Form:\\
-\texttt{<Userid>\textbackslash0<Username\textbackslash0<Passwort>}. 
-Interressant für die Authentifizierung ist dabei der Username und das Passwort.
-Mittels des Config Moduls wird zuerst geprüft, ob der Nutzer exisitert und
+\texttt{<Nutzerid>\textbackslash0<Nutzername\textbackslash0<Passwort>}. 
+Interessant für die Authentifizierung ist dabei der Nutzername und das Passwort.
+Mittels des Config Moduls wird zuerst geprüft, ob der Nutzer existiert und
 anschließend ob das Passwort korrekt ist. Ist beides Erfolgreich, so wird die
-Sitzung als Authentifiziert markiert. Die dekodierung des Strings wird von der
-SSL Bibliothek übernomen.
+Sitzung als Authentifiziert markiert. Die Dekodierung des Strings wird von der
+SSL Bibliothek übernommen.
 
 Der Emailclient Mozilla Thunderbird hält sich leider nicht an den Standard und
 sendet \texttt{AUTH PLAIN} und des String mit den Nutzerdaten in einer Zeile.
@@ -370,18 +370,18 @@ fehl, so wird geprüft ob eines der wahlfrei in der Sitzung verwendbaren
 Kommandos (z.b. \texttt{RSET}, \texttt{QUIT} oder \texttt{NOOP}). aufgetreten
 sind und werden bei Auftreten entsprechend behandelt.
 
-Die in der Sitzung angegebenen Emailaddressen für den Empfänger und den Absender
+Die in der Sitzung angegebenen Emailadressen für den Empfänger und den Absender
 werden direkt nach dem jeweiligen Empfang geprüft. Geprüft wird, ob der Teil vor
 dem @ mindestens 2 Zeichen lang ist und ob der Teil nach dem @ ein existierender
 Hostname ist oder es einen MX Record dazu gibt. 
 
-Bei den Empfängeraddressen wird zudem geprüft, ob die Addresse lokal existiert.
+Bei den Empfängeradressen wird zudem geprüft, ob die Adresse lokal existiert.
 Ist dies der Fall, so wird die Email nach der Annahme an die entsprechende
-lokale Mailbox ausgeliefert. Ist die Addresse nicht-lokal, so wird die Elail an
+lokale Mailbox ausgeliefert. Ist die Adresse nicht-lokal, so wird die Email an
 das Forward Modul übergeben, welches sie an den entsprechenden Mailserver
 weiterleitet.
 
-Die MX Records zu den Emailaddressen werden von dem Resolver der libc aufgelöst.
+Die MX Records zu den Emailadressen werden von dem Resolver der libc aufgelöst.
 Dies hat den Vorteil, das keine weiteren Bibliotheken auf dem System vorhanden
 sein müssen. Leider ist dieser Teil der Bibliothek nicht gut dokumentiert, so
 das zur Implementation der MX-Record-Auflösefunktion der Code des ClamAV
@@ -389,7 +389,7 @@ Virenscanners als Beispiel zur Hilfe genommen wurde. Der resultierende Code
 sieht auf den ersten Blick etwas kompliziert aus, dies liegt jedoch nur an der
 komplizierten Verarbeitung eines Auflöseresultats. Die Funktion ermittelt
 lediglich den ersten MX Record zu einem namen. Dies sollte in der Regel
-ausreichen. An sonsten möchte ich an dieser Stelle auf den Beispielcharakter der
+ausreichen. Sonst möchte ich an dieser Stelle auf den Beispielcharakter der
 Anwendung hinweisen, welcher explizit gefordert wurde.
 
 Der eigentliche Datenblock der Mail wird Zeilenweise eingelesen und in einer
@@ -401,21 +401,21 @@ da zu jedem Zeilenelement in der Liste die Länge der Zeile gespeichert wird.
 Es muss also nur durch die Liste iteriert, die Größen addiert und ein 
 Speicherblock mit der entsprechenden Größe allokiert werden. 
 Anschließend wird erneut über die Liste iteriert und die einzelnen Zeilendaten 
-mittels \texttt{memcpy} in den Puffer kopiert. Auch hier ist die jeweils zu der 
-Zeile gespeicherte Länge wieder hilfreich, da so der offset für das Kopieren 
+mittels \texttt{memcpy()} in den Puffer kopiert. Auch hier ist die jeweils zu der 
+Zeile gespeicherte Länge wieder hilfreich, da so der Offset für das Kopieren 
 einfach durch Addition der Längen zu berechnen ist. 
 An das Forward Modul zum weiterleiten der Email wird die komplette Zeilenliste
 übergeben.
 Beendet wird der Datenblock wie im Standard beschrieben mit
-\texttt{<CR><LF>.<CR><LF>}. Wird diese Sequenz gefunden wird die annahme der
+\texttt{<CR><LF>.<CR><LF>}. Wird diese Sequenz gefunden wird die Annahme der
 Daten beendet und die Mail sofort an das Forward Modul übergeben oder lokal
 ausgeliefert.
 
 Nach der Auslieferung oder Weiterleitung einer Mail wird die Sitzungsstruktur
-sofort wieder bereinigt und kann eine weilere Email entgegen nehmen. Beendet
-wird die Sitzung mit einem \texttt{QUIT} des Clients. Nach einem Quit baut das
-Connection Modul die Verbindung ab und lässt das SMTP Modul mit Hilfe der 
-Aufräum Callback-Funktion die Sitzungsstruktur leeren und freigeben.
+sofort wieder bereinigt und kann eine weitere Email entgegen nehmen. Beendet
+wird die Sitzung mit einem \texttt{QUIT} des Clients. Nach einem \texttt{QUIT} 
+baut das Connection Modul die Verbindung ab und lässt das SMTP Modul mit Hilfe 
+der Aufräum-Callback-Funktion die Sitzungsstruktur leeren und freigeben.
 
 
 \subsection{Forward}
@@ -438,20 +438,20 @@ an das Forward Modul übergeben werden.
 
 Da das Forward Modul, wie das SMTP Modul ebenfalls eine SMTP Sitzung
 durchführt, muss auch dieses den Momentanen Status der Verbindung speichern.
-Dies geschiet in der bereits angesprochenen \texttt{fwd\_mail}-Struktur. Das
+Dies geschieht in der bereits angesprochenen \texttt{fwd\_mail}-Struktur. Das
 jeweils zu Sendende Kommando wird dann aus dem aktuellen Status und dem letzten
 Replycode des Mailservers, an den die Email weitergeleitet werden soll,
 bestimmt.
 
 Kommt es zu einem Fehler, welcher sich nicht einfach durch erneutes Senden der
 letzten Nachricht beheben lässt, so wird der Sendevorgang abgebrochen und eine
-Email mit der Fehlernachticht und dem Inhalt der Originalemail an den Absender
+Email mit der Fehlernachricht und dem Inhalt der Originalemail an den Absender
 verschickt. Die Funktion zum Weiterleiten einer Email hat dabei ein Argument
 namens \texttt{failable}, welches anzeigt, ob diese eben genannte Mail versendet
 werden soll oder nicht. Dies ist notwendig, damit es nicht zu einer Fehleremail
 auf einen fehlgeschlagenen Sendevorgang einer Fehleremail kommt.
 
-Nach einem Sendevorgang wird ein \texttt{QUIT} an den Mailserver gesedet und
+Nach einem Sendevorgang wird ein \texttt{QUIT} an den Mailserver gesendet und
 gewartet, das das Connection Modul die Verbindung abbaut und die
 \texttt{fwd\_mail}-Struktur aus dem Speicher bereinigt.
 
@@ -471,12 +471,12 @@ Zustände sind:
     \item[\texttt{QUIT}] Repräsentiert eine beendete Sitzung.	
 \end{description}
 Alle Zustände sowie die Mailbox- und Nutzer-Daten werden in einer
-\texttt{pop3\_session}-Struktur gespeichert und stehen damit über die gesammte
+\texttt{pop3\_session}-Struktur gespeichert und stehen damit über die gesamte
 Sitzung zur Verfügung. 
 
 Zur Authentifizierung sendet der Client zu Beginn seiner Sitzung die zwei 
 Kommandos \texttt{USER <Nutzername>} und \texttt{PASS <Passwort>} senden muss.
-Nach Empfang des Nutzernames wird dieser mit Hilfe des Config Moduls geprüft. 
+Nach Empfang des Nutzernamens wird dieser mit Hilfe des Config Moduls geprüft. 
 Wenn er existiert wird eine Positive Antwort gesendet. Anschließend wird 
 geprüft, ob das Passwort valide ist. War diese Prüfung erfolgreich, so wird 
 versucht die Mailbox des Nutzers zu sperren. Das heißt, es wird in der 
@@ -496,14 +496,14 @@ mit dem vorliegendem Programm abzurufen. Alle anderen, nicht implementierten
 Kommandos werden mit einem einfachem \texttt{-ERR} Quittiert. 
 
 Die Implementierungen der einzelnen Kommandos wurden so umgesetzt, das sie den
-Standard rfc1939 so gut wie möglich umsetzen. Für details zur Funktionsweise
+Standard rfc1939 so gut wie möglich umsetzen. Für Details zur Funktionsweise
 oder Benutzung der einzelnen Kommandos möchte ich daher auf den Standard 
 rfc1939 verweisen.
 
 Der \texttt{QUIT} Zustand zeigt an, das die Sitzung beendet wurde. Er wird nur
 zwischen einem \texttt{QUIT} des Clients und dem Abbau der Verbindung
 angenommen. Nach einem ordnungsgemäßem \texttt{QUIT} werden alle zum Löschen
-markierten Emails der Mailbox gelöscht. Dem Connection Modul wird mittgeteilt,
+markierten Emails der Mailbox gelöscht. Dem Connection Modul wird mitgeteilt,
 das es die Verbindung abbauen und die Callback-Funktion zum Aufräumen der
 \texttt{pop3\_session}-Struktur aufrufen kann.
 
@@ -526,10 +526,10 @@ um SmtpS Funktionalitäten erweitert werden.
 
 \subsection{Ssl}
 Das Ssl Modul stellt alle Funktionen zur Kommunikation mit Clients über eine SSL
-Verbindung bereit. Es arbeitet vollkommen unabhängig vom verwendetrm
-Anwendungsprotokoll. Die Konfigurationen, wie der Name der Zertifikatdatei, etc
+Verbindung bereit. Es arbeitet vollkommen unabhängig vom verwendetem
+Anwendungsprotokoll. Die Konfigurationen, wie der Name der Zertifikastdatei, etc
 stehen momentan fest im Code. Dies ist mit der vorhandenen Infrastruktur des
-Config Moduls bei Bedarf problemlos als Kommandozeilenoption umsetzbar. Für
+Config Moduls bei Bedarf problemlos als Kommandozeilen-Option umsetzbar. Für
 diese Anwendung mit Beispielcharakter soll die feste Codierung jedoch genügen.
 
 Zu Beginn der Anwendung muss das Ssl Modul initialisiert werden. Dabei wird ein
@@ -541,23 +541,23 @@ Ist der Kontext initialisiert können neue Client Verbindungen durch einen SSL
 Handshake aufgebaut werden. Dies geschieht durch die Funktion
 \texttt{ssl\_accept\_client()}, welche lediglich einen Dateidescriptor bekommt,
 welcher den Socket zum Client darstellt. Zurückgegeben wird ein Pointer auf eine
-\texttt{SSL}-Struktur. Diese ird im späterem Verlauf der Verbindung benötigt um
+\texttt{SSL}-Struktur. Diese wird im späterem Verlauf der Verbindung benötigt um
 Daten vom Client zu lesen oder zu ihm zu senden.
 
 Das Lesen und Senden von Daten geschieht über die Funktionen \texttt{ssl\_read()}
 sowie \texttt{ssl\_write()}. Diese werden ähnlich wie die libc Funktionen
 \texttt{read()} und \texttt{write()} aufgerufen, bekommen jedoch immer den
-zugeordneten \texttt{SSL}-Struktur-Pointer. Auc die Rückgabewerte der Funktionen
+zugeordneten \texttt{SSL}-Struktur-Pointer. Auch die Rückgabewerte der Funktionen
 sind ähnlich der der libc Funktionen.
 
-Am Bnde einer SSL verbindung muss zusätzlich zum normalen \texttt{close()} noch
+Am Ende einer SSL Verbindung muss zusätzlich zum normalen \texttt{close()} noch
 ein \\
-\texttt{ssl\_quit\_client()} aufgerufen werden, um (vor dem Close) die SSL
-Verbindung ordnungsgemäß zu beenden. Dies wird durch das 
+\texttt{ssl\_quit\_client()} aufgerufen werden, um (vor dem \texttt{close()}) die 
+SSL Verbindung ordnungsgemäß zu beenden. Dies wird durch das 
 \texttt{socket\_is\_ssl} Flag in der \texttt{mysocket} Struktur der Verbindung
 im Connection Modul realisiert. Dieses Flag wird von der Funktion, welche im
 Connection Modul für das Abbauen von Verbindungen zuständig ist ausgewertet.
-Wenn die gesammte Anwendung beendet wird muss der SSL Kontext mit
+Wenn die gesamte Anwendung beendet wird muss der SSL Kontext mit
 \texttt{ssl\_app\_destroy()} wieder aufgeräumt werden. 
 
 
@@ -568,7 +568,7 @@ Wenn die gesammte Anwendung beendet wird muss der SSL Kontext mit
 Das vorliegende Programm kann als rudimentärer Mailserver verwendet werden.
 Dabei implementiert es die Funktionalitäten eines Mailservers, eines Mailrelays
 und eines POP3 Servers, welcher zusätzlich noch SSL-verschlüsselte Verbindungen
-beherrscht. Es gelten jedoch einige Aufgabenbedignte Einschränkungen, welche
+beherrscht. Es gelten jedoch einige Aufgabenbedingte Einschränkungen, welche
 unter \ref{sec:umsetzung-allgemein} aufgeführt sind.
 
 \section{Optionen}
