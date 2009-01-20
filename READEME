@@ -1,0 +1,7 @@
+Kurze Einführung:
+- ein einfaches ,,make'' baut das Programm
+- ,,make doc'' baut die Dokumentationen
+- ,,make all'' baut alles
+- ,,make clean'' räumt die gebauten Programmdateien fest
+- unter ,,usage_doc'' liegt die allgemeine Dokumentation mit dem Namen ,,usage_doc.pdf''
+- unter /doc/html liegt die von doxygen Dokumentation
