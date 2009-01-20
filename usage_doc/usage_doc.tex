@@ -32,7 +32,7 @@ Kommunikationssysteme}
 
 \chapter{Aufgabe}
 
-\section{Wortlaut}
+\section{Wortlaut}\label{sec:aufgabe-wortlaut}
 Schreiben Sie einen Daemon, welcher E-Mails per ESMTP annehmen und weiterleiten 
 oder speichern sowie dem jeweiligen Nutzer per POP3 zur Verfügung stellen kann. 
 Die Implementierung von ESMTP muss eine Authentisierung des Nutzers vor dem 
@@ -456,7 +456,7 @@ gewartet, das das Connection Modul die Verbindung abbaut und die
 \texttt{fwd\_mail}-Struktur aus dem Speicher bereinigt.
 
 
-\subsection{Pop3}
+\subsection{Pop3}\label{sec:umsetzung-pop3}
 Im Pop3 Modul ist, wie der Name schon sagt, das Pop3 Protokoll (rfc1939)
 implementiert. Über das Pop3 Protokoll kann ein Client die Emails aus einer
 lokalen Mailbox abrufen sowie sich Metadaten dazu anzeigen lassen.
@@ -571,7 +571,63 @@ und eines POP3 Servers, welcher zusätzlich noch SSL-verschlüsselte Verbindunge
 beherrscht. Es gelten jedoch einige Aufgabenbedingte Einschränkungen, welche
 unter \ref{sec:umsetzung-allgemein} aufgeführt sind.
 
+Die SMTP Implementierung besitzt zudem einige Besonderheiten. So ist mit einer
+normalen SMTP Sitzung (eingeleitet mit einem \texttt{HELO} des Clients) nur das
+ausliefern von Emails an lokale Adressen möglich. Um eine Email an eine
+nicht-lokale Adresse zu versenden muss der Client das erweiterte SMTP Protokoll
+ESMTP (eingeleitet mit einem \texttt{EHLO} des Clients) benutzen. ESMTP
+Sitzungen müssen jedoch immer mit Nutzername und Passwort Authentifiziert
+werden. Die Nutzername-Passwort-Kombinationen stehen in einer Datei, welche beim
+Start der Anwendung als Kommandozeilen-Option angegeben wird. Das Format dieser
+Datei hält sich an die Vorgabe in der Aufgabenstellung (siehe
+\ref{sec:aufgabe-wortlaut}). 
+
+Nach erfolgreicher Authentifizierung per \texttt{AUTH PLAIN} ist auch ein
+Versandt an nicht-lokale Adressen möglich. Dazu kann beim Starten des Programmes
+ein Relayhost angegeben werden. Ist diese Option angegeben, werden alle Emails
+die nicht lokal ausgeliefert werden können an diesen Server versandt. Ohne diese
+Option werden die Emails an den Server gesandt, welcher durch den Teil nach dem
+@ der Email bezeichnet wird oder an den MX Host dieses Bezeichners.
+
+Die lokalen Email-Konten werden durch die Nutzer, welcher in der oben genannten
+Datei spezifiziert sind und dem Hostnamen des Servers zusammengesetzt. Der
+Nutzername ergibt dabei den Zeil vor dem @, der Hostname den danach. Beim Start
+der Anwendung kann der Hostname als Kommandozeilen-Option übergeben werden. Der
+Server versucht sich dann an diese Adresse zu binden. Wird kein Hostname
+angegeben, so wird \texttt{localhost} als Hostname angenommen und der Server
+bindet sich an \texttt{INET\_ANY}, d.h. an alle lokalen Netzwerkinterfaces.
+
+Die Emails der lokalen Konten können per POP3 vom vorliegendem Server abgeholt
+werden. Dabei werden alle notwendigen POP3 Kommandos und die optionalen
+Kommandos \texttt{UIDL}, \texttt{USER} und \texttt{PASS} unterstützt.
+POP3-Sitzungen müssen immer Authentifiziert werden. Dies geschieht per Klartext
+\texttt{USER}$\rightarrow$\texttt{PASS} Sequenz. Als Nutzerdaten gelten ebenfalls
+die Daten in der oben genannten Datei. In den Mailboxen gespeicherte Emails
+bleiben auch nach dem Programmende erhalten. Es ist nur eine POP3 Verbindung pro
+Nutzer und Zeitraum möglich. Der Versuch eine zweite Verbindung zu öffnen wird
+mit einem Fehler quittiert (siehe \ref{sec:umsetzung-pop3}).
+
+Das POP3 Protokoll kann auch durch eine SSL Verschlüsselte Verbindung genutzt
+werden. Dazu muss sich der Client lediglich zu dem dafür eingestellten Port
+verbinden. Das Zertifikat ist selbst-signiert und liegt im Wurzelverzeichnis des
+Servers.
+
+Alle oben genannten Funktionalitäten sind mit dem Emailclient Mozilla
+Thunderbird in der Version 2.0.0.19 erfolgreich getestet. Zudem wurde die
+korrekte Funktion nach den entsprechenden RFCs per Telnet sowie Openssl-Client
+erfolgreich getestet. Durch die Standardnahe Umsetzung kann die genau
+Funktionsweise der Protokolle in den entsprechenden RFCs nachgelesen werden.
+
+Das Programm gibt Status und Fehlermeldungen während der Laufzeit auf der
+Kommandozeile aus. Es sei noch einmal ausdrücklich auf den Beispielcharakter der
+Anwendung hingewiesen. Es wird keinerlei Haftung für Schäden jeglicher Art
+übernommen, welche durch dieses Programm verursacht wurden.
+
+
 \section{Optionen}
+
+
+
 
 \pagebreak
 
@@ -584,4 +640,19 @@ unter \ref{sec:umsetzung-allgemein} aufgeführt sind.
     \label{fig:schema}
   \end{figure}
 \end{appendix}
+\chapter{Sonstiges}
+\section{Lizenz}
+Copyright (C) 2009 Jan Losinski
+
+This program is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free Software 
+Foundation; either version 3 of the License, or (at your option) any later 
+version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY 
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A 
+PARTICULAR PURPOSE. See the GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along with 
+this program; if not, see \url{<http://www.gnu.org/licenses/>}.
 \end{document}
