@@ -685,11 +685,12 @@ um lokale Emailadressen zu generieren. Das Format der Datei ist wie in der
 Aufgabe (siehe \ref{sec:aufgabe-wortlaut}) beschrieben. 
 
 Pro Zeile ist genau eine Nutzer-Passwort Kombination definiert. Zuerst kommt der
-Nutzername. Anschließend folgt ein Tabulatorzeichen und hinterher das Passwort:
-\texttt{<Nutzername>\textbackslash t<Passwort>\textbackslash n}. Twischen den
+Nutzername. Anschließend folgt ein Tabulatorzeichen und hinterher das
+Passwort:\\
+\texttt{<Nutzername>\textbackslash t<Passwort>\textbackslash n}. Zwischen den
 Werten dürfen keine weiteren Leerzeichen existieren.
 
-Ohne angabe dieser Datei können keine Emails ausgeliefert oder abgerufen werden.
+Ohne Angabe dieser Datei können keine Emails ausgeliefert oder abgerufen werden.
 Dies kommt daher, der Server in dem Fall weder lokale Nutzer besitzt an die er
 Emails ausliefern könnte, noch Nutzerdaten hat um POP3 oder ESMTP Sitzungen zu
 authentifizieren.
@@ -702,7 +703,19 @@ einen POP3 Client aufbewahrt. Ohne die Angabe dieser Datei wird
 
 
 \subsection{Hostnamen}
+Die Hostnamenoption \texttt{-H} setzt den Hostnamen des Servers selbst. Dies hat
+zur Auswirkung, das der Server versucht sich an die angegebene Adresse zu
+binden. Zudem werden die Emailadressen zum Teil aus diesem Hostnamen gebildet:
+er bildet den Teil nach dem @. Wird diese Option nicht angegeben, so versucht
+der Server sich an alle lokalen Netzwerkinterfaces zu binden. Als Hostanteil für
+Emailadressen wird in diesem Fall \texttt{localhost} verwendet.
 
+Die zweite Hostoption \texttt{-R} spezifiziert den Relayhost des Servers. Dieser
+stellt den Mailserver dar, an den alle nicht-lokalen Emails weitergeleitet
+werden. Wird kein solcher Relayhost angegeben, so versucht der Server den
+Hostanteil der Empfängeradresse als Hostnamen zu interpretieren. Schlägt dies
+fehl, so versucht er den MX Record zu dem Hostanteil der Empfängeradresse per 
+DNS Anfrage aufzulösen und die Email an diesen zu senden.
 
 
 \pagebreak
