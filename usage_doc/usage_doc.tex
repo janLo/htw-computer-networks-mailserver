@@ -67,7 +67,7 @@ Programmieren sie nicht einfach darauf los. Beginnen Sie mit einer Konzeption
 der benötigten Programmmodule. Diese Konzeption darf (und sollte auch) in 
 Gruppenarbeit erstellt werden.
 
-Der Daemon soll mindestend folgende Kommandozeilenparameter unterstützen
+Der Daemon soll mindestens folgende Kommandozeilenparameter unterstützen
 \begin{description}
   \item[-h] Dokumentation der Kommandozeilenparameter und exit
   \item[-V] Informationen zur Version, SVN-Revision und Autor (Name, Vorname, Login)
@@ -81,11 +81,11 @@ Der Daemon soll mindestend folgende Kommandozeilenparameter unterstützen
 \end{description} 
 
 \section{Erfragte Zusätze}
-Folgende zusätzliche Fahten zur Aufgabenstellung wurden erfragt:
+Folgende zusätzliche Fakten zur Aufgabenstellung wurden erfragt:
 \begin{itemize}
   \item SMTPS soll nicht implementiert werden.
   \item Die Ein/Ausgabe kann blockierend erfolgen.
-  \item Der Mailheader muss nicht geparst werden, auch eine Extraktion von
+  \item Der Mailheader muss nicht geparsed werden, auch eine Extraktion von
         Mail Adressen muss nicht erfolgen.
   \item Mailrelay soll nur bei authentifiziertem ESMTP möglich sein.
   \item Die Zustellung lokaler Mails ist ohne Authentifizierung möglich. 
@@ -120,7 +120,7 @@ Server nicht für den Produktiveinsatz geeignet ist.
 
 \section{Module}
 Bei der Planung wurde festgestellt, das eine Aufteilung der funktionalen
-Bestandteile des Programmes auf verschiedene getrennte und nur über definierte
+Bestandteile des Programms auf verschiedene getrennte und nur über definierte
 Schnittstellen kommunizierende Module sinnvoll ist. So können Fehler lokal
 begrenzt und schneller gefunden werden. Auch Seiteneffekte einer späteren 
 Problembehebung können somit auf das bearbeitete Modul begrenzt werden, solang
@@ -174,7 +174,7 @@ Header-Dateien definiert.
                 Implementation des POP3 Protokolls benötigt werden.\\
   smtp        & In diesem Modul sind alle Funktionen gekapselt, die zur
                 Implementation des SMTP/ESMTP Protokolls benötigt werden.\\
-  ssl         & Dieses Modul dient zur Behandlung con SSL Verbindungen, welche
+  ssl         & Dieses Modul dient zur Behandlung von SSL Verbindungen, welche
                 für POP3S benötigt werden.\\
   \hline
 \end{tabular}
@@ -205,7 +205,7 @@ in der Headerdatei definiert sind, jederzeit von anderen Modulen abgefragt
 werden.
 
 Das Modul besitzt außerdem Funktionen zum Prüfen, ob ein Nutzer existiert, ob
-ein Passwort korrekt ist und ob die Mailbox des Nutzers grad gesperrt ist oder
+ein Passwort korrekt ist und ob die Mailbox des Nutzers gerade gesperrt ist oder
 nicht.
 
 
@@ -226,10 +226,10 @@ Performancenachteile wurden nicht festgestellt, zumal eine eigene
 Implementierung dieser Funktionalitäten aufgrund der kurzen Zeit sicher nicht
 optimal wären.
 
-Das Mailbox Modul muss zu beginn des Programmes initialisiert werden, um eine
+Das Mailbox Modul muss zu beginn des Programms initialisiert werden, um eine
 ordnungsgemäße "`Verbindung"' zur Datenbank-Datei aufbauen zu können. Am ende der
 Anwendung ist dann ein de-initialisieren nötig, um die Datei wieder zu
-schliessen.
+schließen.
 
 Nach der Initialisierung des Moduls können nach belieben neue Emails in die
 Mailboxen geschrieben werden. Dazu dient lediglich die Funktion
@@ -313,7 +313,7 @@ Beim Schließen von Verbindungen wird die zugeordnete Callback-Funktion der
 Verbindung zum Aufräumen der Sitzungsdaten aufgerufen. Diese sind ebenfalls in
 den drei Modulen Pop3, Smtp und Forward definiert. Dieser Aufruf passiert in der
 Funktion, welche die \texttt{mysocket}-Strukturen aus der Liste der Sockets
-entfernt und die Sockets schliesst (\texttt{conn\_delete\_socket\_elem()}).
+entfernt und die Sockets schließt (\texttt{conn\_delete\_socket\_elem()}).
 Sollte die Verbindung eine SSL Verbindung sein, so wird hier auch die SSL
 Verbindung ordnungsgemäß abgebaut.
 
@@ -322,9 +322,9 @@ zu einem weiterem Mailserver oder einem Mailrelay. Diese neuen Verbindungen
 werden anschließend wie normale Client Verbindungen in die Liste der Sockets
 eingereiht.
 
-Am Ende des Programmes wird von \texttt{main()} die Funktion 
+Am Ende des Programms wird von \texttt{main()} die Funktion 
 \texttt{conn\_close()} aufgerufen. Diese wird auch als Signalhandler für alle
-Signale die ein Ende des Programmes andeuten gesetzt. Sie geht die Liste der
+Signale die ein Ende des Programms andeuten gesetzt. Sie geht die Liste der
 Sockes durch und baut alle Verbindungen ordnungsgemäß ab.
 
 
@@ -390,7 +390,7 @@ das zur Implementation der MX-Record-Auflösefunktion der Code des ClamAV
 Virenscanners als Beispiel zur Hilfe genommen wurde. Der resultierende Code
 sieht auf den ersten Blick etwas kompliziert aus, dies liegt jedoch nur an der
 komplizierten Verarbeitung eines Auflöseresultats. Die Funktion ermittelt
-lediglich den ersten MX Record zu einem namen. Dies sollte in der Regel
+lediglich den ersten MX Record zu einem Namen. Dies sollte in der Regel
 ausreichen. Sonst möchte ich an dieser Stelle auf den Beispielcharakter der
 Anwendung hinweisen, welcher explizit gefordert wurde.
 
@@ -585,7 +585,7 @@ Datei hält sich an die Vorgabe in der Aufgabenstellung (siehe
 \ref{sec:aufgabe-wortlaut}). 
 
 Nach erfolgreicher Authentifizierung per \texttt{AUTH PLAIN} ist auch ein
-Versandt an nicht-lokale Adressen möglich. Dazu kann beim Starten des Programmes
+Versandt an nicht-lokale Adressen möglich. Dazu kann beim Starten des Programms
 ein Relayhost angegeben werden. Ist diese Option angegeben, werden alle Emails
 die nicht lokal ausgeliefert werden können an diesen Server versandt. Ohne diese
 Option werden die Emails an den Server gesandt, welcher durch den Teil nach dem
@@ -593,7 +593,7 @@ Option werden die Emails an den Server gesandt, welcher durch den Teil nach dem
 
 Die lokalen Email-Konten werden durch die Nutzer, welcher in der oben genannten
 Datei spezifiziert sind und dem Hostnamen des Servers zusammengesetzt. Der
-Nutzername ergibt dabei den Zeil vor dem @, der Hostname den danach. Beim Start
+Nutzername ergibt dabei den Teil vor dem @, der Hostname den danach. Beim Start
 der Anwendung kann der Hostname als Kommandozeilen-Option übergeben werden. Der
 Server versucht sich dann an diese Adresse zu binden. Wird kein Hostname
 angegeben, so wird \texttt{localhost} als Hostname angenommen und der Server
@@ -666,11 +666,11 @@ und in meinem Versionsverwaltungssystemen die Revision 186 darstellt.
 
 \subsection{Portangabe}
 Mit der Option \texttt{-p} können die Ports angegeben werden, an denen der
-Server seine Dienste anbietet. Das Atgument nach \texttt{-p} muss ein Tupel aus
+Server seine Dienste anbietet. Das Argument nach \texttt{-p} muss ein Tupel aus
 drei unterschiedlichen Zahlen zwischen 1 und 65535 sein, welche durch Komma
-getrennt sind. Die erste Zahl stellt dabei den Port für das SMTP Protokoll dat,
+getrennt sind. Die erste Zahl stellt dabei den Port für das SMTP Protokoll dar,
 die zweite den Port für das POP3 Protokoll und die dritte den Port für die SSL
-verschlüsselte Variante des POP3 Protokolles (POP3S). 
+verschlüsselte Variante des POP3 Protokolls (POP3S). 
 
 Zu beachten ist, das auf vielen unixartigen Systemen die Ports 1-1024 root (UID 
 0) vorbehalten sind und nicht von Nutzern mit eingeschränkten Rechten benutzt 

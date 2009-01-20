@@ -414,7 +414,10 @@ int fwd_queue(body_line_t * body, char * from, char * to, int failable){
 
     memset(new_mail, '\0', sizeof(fwd_mail_t));
 
+    INFO_MSG("Queue new forward message!");
+
     if( -1 == (new = conn_new_fwd_socket(host, new_mail)) ) {
+	ERROR_SYS("Connecting forward host");
         return FWD_FAIL;
     }
     
@@ -453,7 +456,6 @@ int fwd_queue(body_line_t * body, char * from, char * to, int failable){
 int fwd_process_input(char * msg, ssize_t msglen, fwd_mail_t * fwd){
     int status;
 
-    INFO_MSG("Queue new forward message!");
 
     switch (fwd->fwd_state) {
 

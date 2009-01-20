@@ -172,6 +172,8 @@ mailbox_t * mbox_init(char* user){
 
     mailbox_t * new_mbox = malloc(sizeof(mailbox_t));
     
+    memset(new_mbox, '\0', sizeof(mailbox_t));    
+
     char * username = malloc(sizeof(char)*(strlen(user)+1));
     strcpy(username, user);
     new_mbox->mbox_user = username;
@@ -189,18 +191,20 @@ mailbox_t * mbox_init(char* user){
     
     /* Build mbox map */
     if (new_mbox->mbox_mailcount > 0) {
-    sqlite3_bind_text(statement_stat,  1, username, -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(statement_stat,  1, username, -1, SQLITE_TRANSIENT);
 
-    new_mbox->mbox_map = malloc( sizeof(mail_t) * new_mbox->mbox_mailcount );
-    while(SQLITE_ROW == sqlite3_step(statement_stat)) {
-        new_mbox->mbox_map[i].mail_session_number = i+1;
-        new_mbox->mbox_map[i].mail_size           = sqlite3_column_int(statement_stat, 1);
-        new_mbox->mbox_map[i].mail_id             = sqlite3_column_int(statement_stat, 0);
-        new_mbox->mbox_map[i].is_deleted          = 0;
-        new_mbox->mbox_size                      += new_mbox->mbox_map[i].mail_size;
-        i++;
-    }
-    sqlite3_reset(statement_stat);
+        new_mbox->mbox_map = malloc( sizeof(mail_t) * new_mbox->mbox_mailcount );
+        while(SQLITE_ROW == sqlite3_step(statement_stat)) {
+            new_mbox->mbox_map[i].mail_session_number = i+1;
+            new_mbox->mbox_map[i].mail_size           = sqlite3_column_int(statement_stat, 1);
+	    new_mbox->mbox_map[i].mail_id             = sqlite3_column_int(statement_stat, 0);
+	    new_mbox->mbox_map[i].is_deleted          = 0;
+	    new_mbox->mbox_size                      += new_mbox->mbox_map[i].mail_size;
+	    i++;
+        }
+        sqlite3_reset(statement_stat);
+    } else {
+        new_mbox->mbox_map = NULL;
     }
 
     INFO_MSG2("Mailbox opened for %s", user);
@@ -380,8 +384,10 @@ void mbox_close(mailbox_t * mbox, int has_quit){
         }
     }
     /* Free resources */
-    free(mbox->mbox_user);
-    free(mbox->mbox_map);
+    if (NULL != mbox->mbox_map)
+        free(mbox->mbox_user);
+    if (NULL != mbox->mbox_map)
+        free(mbox->mbox_map);
     free(mbox);
 
     INFO_MSG("Mailbox closed");
