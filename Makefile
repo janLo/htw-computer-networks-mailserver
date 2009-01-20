@@ -4,8 +4,9 @@ LDFLAGS = -lsqlite3 `pkg-config --libs-only-l openssl` -lresolv
 OBJS = mailbox.o main.o config.o connection.o fail.o smtp.o forward.o pop3.o ssl.o
 BIN  = mailtool
 
-
-
+REVISION = `svn info | awk '$$1 ~ "Revision" {print $$2}'`
+CFLAGS += -D"REVISION_MAIN=\"$(REVISION)\""
+#CFLAGS += -D"REVISION_HTW=\"$(REVISION)\""
 
 $(BIN): $(OBJS)
 	gcc $(LDFLAGS) -o $(BIN) $(OBJS)

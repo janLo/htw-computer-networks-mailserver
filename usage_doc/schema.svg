@@ -59,9 +59,9 @@
      borderopacity="1.0"
      inkscape:pageopacity="0.0"
      inkscape:pageshadow="2"
-     inkscape:zoom="0.305"
-     inkscape:cx="706.64301"
-     inkscape:cy="612.65439"
+     inkscape:zoom="3.4506811"
+     inkscape:cx="598.12775"
+     inkscape:cy="74.572996"
      inkscape:document-units="px"
      inkscape:current-layer="layer1"
      showgrid="false"
@@ -624,5 +624,16 @@
        d="M 306.90394,452.93052 L 306.90394,496.62766 C 306.90394,496.62766 306.75584,501.08972 308.15349,502.48737 C 309.55115,503.88502 312.97181,503.73695 312.97181,503.73695 L 604.13513,503.73695 C 604.13513,503.73695 608.89185,503.54688 610.21801,502.21246 C 611.57793,500.84404 611.7425,495.96497 611.7425,495.96497 L 611.7425,451.60514"
        id="path8422"
        sodipodi:nodetypes="cczccscc" />
+    <text
+       xml:space="preserve"
+       style="font-size:8px;font-style:normal;font-weight:bold;fill:#b3b3b3;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:Bitstream Vera Sans;-inkscape-font-specification:Sans"
+       x="654.32007"
+       y="717.70312"
+       id="text2489"><tspan
+         sodipodi:role="line"
+         id="tspan2491"
+         x="654.32007"
+         y="717.70312"
+         style="font-size:6px">(c) 2009 Jan Losinski</tspan></text>
   </g>
 </svg>

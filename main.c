@@ -50,8 +50,14 @@
  * @{
  */
 
-#define VERSION  "0.1 PRE ALPHA"
-#define REVISION "r10"
+#define VERSION      "0.1 ALPHA"
+#define AUTHOR	     "Jan Losinski (g08s29) <losinski@wh2.tu-dresden.de>"
+#ifndef REVISION_HTW
+    #define REVISION_HTW  "1"
+#endif
+#ifndef REVISION_MAIN
+    #define REVISION_MAIN "180"
+#endif
 
 //! Print a help message
 /*! 
@@ -79,8 +85,10 @@ void print_help(const char * bin_name) {
  */
 void print_version(const char * bin_name) {
    printf("Version information for %s:\n", bin_name);
-   printf("Version:  " VERSION "\n");
-   printf("Revision: " REVISION "\n");
+   printf("Autor:               " AUTHOR "\n");
+   printf("Version:             " VERSION "\n");
+   printf("Revision (studsvn):  " REVISION_HTW "\n");
+   printf("Revision (losinski): " REVISION_MAIN "\n");
    printf("\n");
 }
 
