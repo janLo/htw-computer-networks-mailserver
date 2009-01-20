@@ -40,6 +40,7 @@
 
 #include "mailbox.h"
 #include "config.h"
+#include "fail.h"
 
 /*!
  * \defgroup mbox Mailbox Module
@@ -152,7 +153,7 @@ int mbox_init_app(){
         return MAILBOX_ERROR;
     }
 
-    printf("mailbox init ok\n");
+    INFO_MSG("mailbox init ok");
     return MAILBOX_OK;
 }
 
@@ -202,6 +203,7 @@ mailbox_t * mbox_init(char* user){
     sqlite3_reset(statement_stat);
     }
 
+    INFO_MSG2("Mailbox opened for %s", user);
     return new_mbox;
 }
 
@@ -334,7 +336,7 @@ int mbox_get_mail(mailbox_t * mbox, int mailnum, char** buffer, size_t *buffsize
         *buffer = newbuff;
         *buffsize = size+1;
     } else {
-        fprintf(stderr, "Can't open database: %s\n", sqlite3_errmsg(database));
+        ERROR_CUSTM2("Can't open database: %s", sqlite3_errmsg(database));
         sqlite3_reset(statement_fetch);
         return MAILBOX_ERROR;
     }
@@ -366,6 +368,7 @@ void mbox_reset(mailbox_t * mbox){
  */
 void mbox_close(mailbox_t * mbox, int has_quit){
     if (has_quit) {
+        INFO_MSG("Delete marked emails");
         int i;
         /* delete marked mails */
         for (i = 0; i < mbox->mbox_mailcount; i++) {
@@ -380,6 +383,8 @@ void mbox_close(mailbox_t * mbox, int has_quit){
     free(mbox->mbox_user);
     free(mbox->mbox_map);
     free(mbox);
+
+    INFO_MSG("Mailbox closed");
 }
 
 //! Shut down the mailbox module
@@ -395,6 +400,7 @@ void mbox_close_app(){
     sqlite3_finalize(statement_fetch);
     sqlite3_finalize(statement_push);
     sqlite3_close(database);
+    INFO_MSG("Mailbox module closed");
 }
 
 /** @} */

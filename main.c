@@ -44,6 +44,7 @@
 #include "mailbox.h"
 #include "connection.h"
 #include "ssl.h"
+#include "fail.h"
 
 /*!
  * \defgroup main Main Module
@@ -138,7 +139,7 @@ int preprocess_options(int argc, char * argv[]){
 }
 
 static void exit_sig_handler(int signr){
-  printf("Signal recived, exit!\n");
+  INFO_MSG("Signal recived, exit!");
   conn_close();
   ssl_app_destroy();
   mbox_close_app();

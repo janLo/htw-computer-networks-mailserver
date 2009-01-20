@@ -42,6 +42,7 @@
 #include <unistd.h>
 
 #include "config.h"
+#include "fail.h"
 
 /*!
  * \defgroup config Configuration Module
@@ -78,16 +79,32 @@ struct userlist {
 
 userlist_t * userlist_head = NULL; //! The head of the userlist
 
-char * smtp_port = "25";        //! The SMTP Port
-char * pop_port  = "110";       //! The POP3 Port
-char * pops_port = "995";       //! The POP3S Port
+#define DFLT_SMTP_PORT  "25"
+#define DFLT_POP3_PORT  "110"
+#define DFLT_POP3S_PORT "995"
+#define DFLT_DFFILE     "mailboxes.sqlite"
+
+char * smtp_port = NULL;        //! The SMTP Port
+char * pop_port  = NULL;       //! The POP3 Port
+char * pops_port = NULL;       //! The POP3S Port
 
 char * hostname  = NULL;        //! The hostname of the server
 
 char * relayhost = NULL;        //! The ost where all non-local mails should be relayed to.
 
-char * dbfile    = "mailboxes.sqlite";  //! The filename of the mailbox database file.
+char * dbfile    = NULL;  //! The filename of the mailbox database file.
 
+
+//! Init default options
+/*!
+ * Sets the default values to config vars.
+ */
+static inline void config_init_defaults(){
+    smtp_port = DFLT_SMTP_PORT;
+    pop_port  = DFLT_POP3_PORT;
+    pops_port = DFLT_POP3S_PORT;
+    dbfile    = DFLT_DFFILE;
+}
 
 //! Get the SMTP port
 /*! 
@@ -215,7 +232,6 @@ int config_parse_csv(const char* filename){
         /* do some string magic */
         if ( ! (username = strtok(line_buffer,"\t"))) continue;
         if ( ! (password = strtok(NULL,       "\t"))) continue;
-        //printf("%s: %s\n", username,password);
 
         /* create a new user */
         new_listentry = malloc(sizeof(userlist_t));
@@ -245,7 +261,7 @@ int config_parse_csv(const char* filename){
         }
         last_listentry = new_listentry;
 
-        printf("%s: %s\n", new_user->user_name,new_user->user_password);
+        INFO_MSG3("User %s added, pass: %s", new_user->user_name,new_user->user_password);
 
     }
     return CONFIG_OK;
@@ -436,18 +452,18 @@ int config_parse_ports(const char* buf){
 
     memcpy(tmp_buff, buf, len);
 
-    if ( (NULL != (smtp = strtok(tmp_buff,","))) && 
-            (NULL != (smtp_port = config_parse_single_port(smtp))) ) {
+    if ( (NULL == (smtp = strtok(tmp_buff,","))) || 
+            (NULL == (smtp_port = config_parse_single_port(smtp))) ) {
         free(tmp_buff);
         return CONFIG_ERROR;
     }
-    if ( NULL != (pop3 = strtok(NULL, ","))  && 
-            (NULL != (pop_port = config_parse_single_port(smtp))) ) {
+    if ( NULL == (pop3 = strtok(NULL, ","))  ||
+            (NULL == (pop_port = config_parse_single_port(pop3))) ) {
         free(tmp_buff);
         return CONFIG_ERROR;
     }
-    if ( NULL != (pop3s = strtok(NULL, ",")) && 
-            (NULL != (pops_port = config_parse_single_port(smtp))) ) {
+    if ( NULL == (pop3s = strtok(NULL, ",")) ||
+            (NULL == (pops_port = config_parse_single_port(pop3s))) ) {
         free(tmp_buff);
         return CONFIG_ERROR;
     }
@@ -496,6 +512,8 @@ int config_init(int argc, char * argv[]){
     size_t len;
     int init_ok = 0;
 
+    config_init_defaults();
+
     while ((c = getopt (argc, argv, "d:p:u:H:R:hV")) != -1){
         switch (c) {
             case 'p':
@@ -522,23 +540,11 @@ int config_init(int argc, char * argv[]){
                 break;
         }
     }
+
+    INFO_MSG("Config init ok");
+
     return (init_ok ? CONFIG_OK : CONFIG_ERROR);
 }
 
 /** @} */
 
-// Test!
-/*
-int main(int argc, char * argv[]){
-
-    config_init(argc, argv);
-    if(config_has_user("Jan")){
-     printf("foo\n");
-    }
-//    config_lock_mbox("Jan");
-    if(config_user_locked("Jan")){
-     printf("foo\n");
-    }
-    return 0;
-}
-*/

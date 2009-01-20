@@ -240,7 +240,6 @@ static inline int fwd_write_command(int remote_fd, const char *command, const ch
 
     if ( conn_writeback(remote_fd, buf, len + 2) <= 0){
         ERROR_SYS("Writing on Remote Socket");
-        printf("Error while Writing on remote socket\n");
         free(buf);
         return FWD_FAIL;
     }
@@ -289,9 +288,8 @@ static inline int check_cmd_reply(char * buf, int expected) {
  */
 static inline int fwd_write_body(int remote_fd, body_line_t * body) {
     body_line_t * elem = body;
-   // static char buff[4069];
 
-    printf("write body\n");
+    INFO_MSG("write body to client");
 
     while (NULL != elem) {
         
@@ -301,18 +299,15 @@ static inline int fwd_write_body(int remote_fd, body_line_t * body) {
 
         if ( conn_writeback(remote_fd, elem->line_data, elem->line_len ) <= 0){
             ERROR_SYS("Writing on Remote Socket");
-            printf("Error while Writing on remote socket\n");
             return FWD_FAIL;
         }
-        printf("fwd_data: %s\n",elem->line_data);
         
         elem = elem->line_next;
     }
 
-    printf("fwd_data FINISHED!\n");
+    INFO_MSG("Body sent!");
     if ( conn_writeback(remote_fd, "\r\n.\r\n", 5) <= 0){
         ERROR_SYS("Writing on Remote Socket");
-        printf("Error while Writing on remote socket\n");
         return FWD_FAIL;
     }
 
@@ -417,6 +412,8 @@ int fwd_queue(body_line_t * body, char * from, char * to, int failable){
     fwd_mail_t * new_mail = malloc(sizeof(fwd_mail_t));
     size_t len;
 
+    memset(new_mail, '\0', sizeof(fwd_mail_t));
+
     if( -1 == (new = conn_new_fwd_socket(host, new_mail)) ) {
         return FWD_FAIL;
     }
@@ -456,7 +453,7 @@ int fwd_queue(body_line_t * body, char * from, char * to, int failable){
 int fwd_process_input(char * msg, ssize_t msglen, fwd_mail_t * fwd){
     int status;
 
-    printf("input for fwd!\n");
+    INFO_MSG("Queue new forward message!");
 
     switch (fwd->fwd_state) {
 
@@ -464,7 +461,6 @@ int fwd_process_input(char * msg, ssize_t msglen, fwd_mail_t * fwd){
         case NEW:
             status = check_cmd_reply(msg, 220);
             if (R_OK != status && R_NOP != status){
-                printf("foo\n");
                 status = R_FAIL;
             } else {
                 const char * myhost = "localhost";
@@ -564,7 +560,7 @@ int fwd_process_input(char * msg, ssize_t msglen, fwd_mail_t * fwd){
         case QUIT:
             status = check_cmd_reply(msg, 221);
             if (R_OK == status) {
-                printf("quit successful\n");
+                INFO_MSG("Forward quit successful");
             }
             return CONN_QUIT;
             break;
@@ -592,14 +588,16 @@ int fwd_process_input(char * msg, ssize_t msglen, fwd_mail_t * fwd){
  * \return FWD_OK in any vases for the moment.
  */
 int fwd_free_mail(fwd_mail_t * fwd) {
-    if (NULL != fwd->fwd_to)
-        free(fwd->fwd_to);
-    if (NULL != fwd->fwd_from)
-        free(fwd->fwd_from);
-    if (NULL != fwd->fwd_body)
-        fwd_delete_body_lines(fwd->fwd_body);
-    free(fwd);
-    printf("fwd freed\n");
+    if (NULL != fwd){
+        if (NULL != fwd->fwd_to)
+            free(fwd->fwd_to);
+        if (NULL != fwd->fwd_from)
+            free(fwd->fwd_from);
+        if (NULL != fwd->fwd_body)
+            fwd_delete_body_lines(fwd->fwd_body);
+        free(fwd);
+    }
+    INFO_MSG("Forward data cleaned");
     return FWD_OK;
 }
 

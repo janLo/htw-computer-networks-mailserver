@@ -36,6 +36,8 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <error.h>
+#include <stdarg.h>
 
 #include "fail.h"
 
@@ -45,24 +47,53 @@
  * @{
  */
 
+static char msg_buf[2048];
+static char loc_buf[2048];
+
+inline int gen_err_msg(const char * pref, const char * msg, const char * file, int line) {
+    snprintf(loc_buf, 1023, "%s:%d", file, line);
+    if(NULL == msg){
+        snprintf(msg_buf, 2047, "%s", pref);
+        return 0;
+    } else {
+        snprintf(msg_buf, 2047, "%s%s", pref, msg);
+        return 1;
+    }
+}
+
+inline char * build_msg(const char * fmt, ...){
+    va_list arglist;
+    va_start(arglist, fmt);
+    static char buf[2048];
+    vsnprintf(buf, 2047, fmt, arglist);
+    return buf;
+}
 
 // Puts a error to stderr
-void put_err(const char *src){
-  if (src == NULL){
-    fprintf(stderr, ERROR_PREF);
+void put_err(int has_src){
+  if (has_src){
+    fprintf(stderr, "%s \tAt %s: ", msg_buf, loc_buf);
   } else {
-    fprintf(stderr, ERROR_PREF "%s - ", src);
+    fprintf(stderr, "%s \tAt %s:\n", msg_buf, loc_buf);
   }
   perror("");
 }
 
 // also puts a error to stderr
-void put_err_str(const char *err){
-  if(err != NULL){
-    fprintf(stderr, ERROR_PREF "%s \n", err);
+void put_err_str(int has_err){
+  if(has_err){
+    fprintf(stderr, "%s \tAt: %s\n", msg_buf, loc_buf);
   } else {
-    fprintf(stderr, ERROR_PREF " Unspecified\n");
+    fprintf(stderr, "%s (Unspecified) \tAt %s\n", msg_buf, loc_buf);
   }
 }
 
+// drops a info to stdout
+void put_info(int has_msg){
+  if(has_msg){
+    fprintf(stdout, "%s \tAt: %s\n", msg_buf, loc_buf);
+  } else {
+    fprintf(stdout, "%s (Unspecified) \tAt %s\n", msg_buf, loc_buf);
+  }
+}
 /** @} */

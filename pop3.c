@@ -43,6 +43,7 @@
 #include "config.h"
 #include "pop3.h"
 #include "mailbox.h"
+#include "fail.h"
 
 /*!
  * \defgroup pop3 POP3 Module
@@ -276,6 +277,7 @@ static int pop3_check_passwd(pop3_session_t * session, char * passwd){
         }
         session->session_state = START;
         pop3_write_client_msg(session->session_writeback_fkt, session->session_writeback_fd, POP3_MSG_PASS_OK);
+        INFO_MSG2("POP3 User %s Authenticated", session->session_user);
         return CHECK_OK;
     }
 
@@ -635,7 +637,7 @@ pop3_session_t * pop3_create_session(int writeback_socket, int ssl){
     }
 
     if (POP3_FAIL == pop3_write_client_msg(fkt, writeback_socket, POP3_MSG_GREET, myhost)){
-	printf("Writeback fail on pop3 init");
+	ERROR_SYS("Writeback fail on pop3 init");
         return new;
     }
 
@@ -647,6 +649,8 @@ pop3_session_t * pop3_create_session(int writeback_socket, int ssl){
     new->session_authorized    = 0;
     new->session_user          = NULL;
     new->session_mailbox       = NULL;
+
+    INFO_MSG("POP3 Session created");
 
     return new;
 }
@@ -721,6 +725,7 @@ int pop3_destroy_session(pop3_session_t * session){
         }
         free(session);
     }
+    INFO_MSG("POP3 Session destroyed");
 
     return 0;
 }

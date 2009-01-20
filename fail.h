@@ -34,10 +34,24 @@
  */
 
 
-#define ERROR_PREF              "ERROR: "
-#define ERROR_SWITCH_TEST(x)    if (!0) x
-#define ERROR_SYS(source)       ERROR_SWITCH_TEST( put_err(source))
-#define ERROR_CUSTM(error)      ERROR_SWITCH_TEST( put_err_str(error))
+#define ERROR_PREF                      "[1;31mERROR:[0m "
+#define ERROR_SWITCH_TEST(x)            if (!0) x
+#define ERROR_GEN_MSG(msg)              gen_err_msg(ERROR_PREF, msg, __FILE__, __LINE__)
+#define ERROR_SYS(source)               ERROR_SWITCH_TEST( put_err(ERROR_GEN_MSG(source)))
+#define ERROR_SYS2(error_fmt, arg1)     ERROR_SYS(build_msg(error_fmt, arg1))
+#define ERROR_CUSTM(error)              ERROR_SWITCH_TEST( put_err_str(ERROR_GEN_MSG(error)))
+#define ERROR_CUSTM2(error_fmt, arg1)   ERROR_CUSTM(build_msg(error_fmt, arg1))
 
-void put_err(const char*);
-void put_err_str(const char*);
+#define INFO_PREF                       "[1;32mINFO:[0m  "
+#define INFO_GEN_MSG(msg)               gen_err_msg(INFO_PREF, msg, __FILE__, __LINE__)
+#define INFO_MSG(msg)                   put_info(INFO_GEN_MSG(msg))
+#define INFO_MSG2(msg_fmt, arg1)        put_info(INFO_GEN_MSG(build_msg(msg_fmt,arg1)))
+#define INFO_MSG3(msg_fmt, arg1, arg2)  put_info(INFO_GEN_MSG(build_msg(msg_fmt,arg1,arg2)))
+
+
+//DO NOT USE THIS DIRECT
+inline int gen_err_msg(const char * pref, const char * msg, const char * file, int line);
+void put_err(int);
+void put_err_str(int);
+void put_info(int);
+inline char * build_msg(const char *, ...);

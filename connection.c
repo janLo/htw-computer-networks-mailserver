@@ -145,7 +145,7 @@ int conn_setup_listen(const char * port) {
     int new_sock = 0;
 
     if((new_sock = socket(PF_INET, SOCK_STREAM, 0)) == -1){
-	ERROR_SYS("socket creation");
+	ERROR_SYS2("socket creation, Port: %s", port);
 	return -1;
     }
 
@@ -155,7 +155,7 @@ int conn_setup_listen(const char * port) {
     setsockopt(new_sock, SOL_SOCKET, SO_REUSEADDR, (char*)&so_opt, sizeof(so_opt));
 
     if(bind(new_sock, info->ai_addr, info->ai_addrlen) == -1){
-	ERROR_SYS("socket binding");
+	ERROR_SYS2("socket binding, Port: %s", port);
 	return -1;
     }
 
@@ -259,8 +259,8 @@ static inline int conn_delete_socket_elem(int fd){
 	    } else {
 		socketlist_head = next;
 	    }
-	    if (NULL != elem->list_socket.socket_data_deleter) {
-                if(elem->list_socket.socket_is_ssl) {
+	    if (elem->list_socket.socket_is_ssl >= 0 && NULL != elem->list_socket.socket_data_deleter) {
+                if(1 == elem->list_socket.socket_is_ssl) {
                     data = ((ssl_data_t*)elem->list_socket.socket_data)->ssl_data;
 		} else {
 		    data = elem->list_socket.socket_data;
@@ -268,14 +268,16 @@ static inline int conn_delete_socket_elem(int fd){
 		(elem->list_socket.socket_data_deleter)(data);
 	    }
 	    close(fd);
+            prev = elem;
 	    free(elem);
 	    return CONN_OK;
-	}
-        prev = elem;
+	} else {
+            prev = elem;
+        }
 	elem = prev->list_next;
     }
 
-    printf("close socket");
+    INFO_MSG("Socket closed");
     return CONN_FAIL;
 }
 
@@ -296,7 +298,6 @@ static inline readbuf_t * conn_tokenize_output(char * readbuf, ssize_t l) {
     readbuf_t * ret = NULL;
     readbuf_t * tmp = NULL;
 
-    printf("len: %d\n", len);
     if (len < 1){
         ret = malloc(sizeof(readbuf_t));
         ret->line_data = NULL;
@@ -326,8 +327,6 @@ static inline readbuf_t * conn_tokenize_output(char * readbuf, ssize_t l) {
         tmp->line_next = NULL;
         tmp->line_data = buf;
 
-        printf("next: %s\n", next);
-        printf("data: %s\n", tmp->line_data);
         next = strtok(NULL, "\n");
     }
         
@@ -343,9 +342,7 @@ static inline readbuf_t * conn_tokenize_output(char * readbuf, ssize_t l) {
  */
 static inline readbuf_t * conn_read_normal_buff(int socket){
     ssize_t len;
-    printf("read...\n"); 
     len = read(socket,readbuf,BUF_SIZE-1);
-    printf("readed: %s\n", readbuf); 
     return conn_tokenize_output(readbuf, len);
 }
 
@@ -388,13 +385,12 @@ int conn_read_normal(mysocket_t * socket){
 
 
             if (CONN_CONT == status) {
-                printf("process: %s\n", tmp->line_data);
                 status = socket->socket_data_handler(tmp->line_data, 
                         tmp->line_len, socket->socket_data);
             }
 
             if (CONN_QUIT == status) {
-                printf("QUIT\n");
+                INFO_MSG("End connection");
                 conn_delete_socket_elem(socket->socket_fd);
             }
 
@@ -402,7 +398,6 @@ int conn_read_normal(mysocket_t * socket){
             free(tmp);
         }
     } else {
-        printf("%i\n", buf->line_len);
         conn_delete_socket_elem(socket->socket_fd);
         free(buf);
     }
@@ -455,13 +450,12 @@ int conn_read_ssl(mysocket_t * socket){
 
 
             if (CONN_CONT == status) {
-                printf("process: %s\n", tmp->line_data);
                 status = socket->socket_data_handler(tmp->line_data, 
                         tmp->line_len, data->ssl_data);
             }
 
             if (CONN_QUIT == status) {
-                printf("QUIT\n");
+                INFO_MSG("Close connection");
 		ssl_quit_client(data->ssl_ssl, socket->socket_fd);
                 conn_delete_socket_elem(socket->socket_fd);
             }
@@ -470,7 +464,6 @@ int conn_read_ssl(mysocket_t * socket){
             free(tmp);
         }
     } else {
-        printf("%i\n", buf->line_len);
         conn_delete_socket_elem(socket->socket_fd);
         free(buf);
     }
@@ -493,7 +486,7 @@ int conn_accept_normal_client(mysocket_t * socket){
     void *            data;
     data_init_t       init_handler = (data_init_t)socket->socket_data;
 
-    printf("smtp\n");
+    INFO_MSG("Accept new Client");
     if ( -1 == (new = accept(socket->socket_fd, &sa, (uint32_t*)&len)) ) {
         return CONN_FAIL;
     }
@@ -540,7 +533,7 @@ int conn_accept_ssl_client(mysocket_t * socket){
 
 
 
-    printf("pop3s\n");
+    INFO_MSG("Accept new SSL Client");
     if ( -1 == (new = accept(socket->socket_fd, &sa, (uint32_t*)&len)) ) {
 	return CONN_FAIL;
     }
@@ -589,29 +582,34 @@ int conn_init(){
     int fd;
 
     /* Setup SMTP */
+    INFO_MSG("Init SMTP socket");
     fd = conn_setup_listen(config_get_smtp_port());
-    elem = conn_build_socket_elem(fd, smtp_create_session, 0, conn_accept_normal_client, 
+    elem = conn_build_socket_elem(fd, smtp_create_session, -1, conn_accept_normal_client, 
             (data_handler_t)smtp_process_input, (data_deleter_t)smtp_destroy_session);
     if (NULL == elem) 
         return CONN_FAIL;
     socketlist_head = elem;
 
     /* Setup POP3 */
+    INFO_MSG("Init POP3 socket");
     fd = conn_setup_listen(config_get_pop_port());
-    elem->list_next = conn_build_socket_elem(fd, pop3_create_normal_session, 0, conn_accept_normal_client, 
+    elem->list_next = conn_build_socket_elem(fd, pop3_create_normal_session, -1, conn_accept_normal_client, 
 	(data_handler_t)pop3_process_input, (data_deleter_t)pop3_destroy_session);
     elem = elem->list_next;
     if (NULL == elem) 
         return CONN_FAIL;
 
     /* Setup POP3S */
+    INFO_MSG("Init POP3S socket");
     fd = conn_setup_listen(config_get_pops_port());
-    elem->list_next = conn_build_socket_elem(fd, pop3_create_ssl_session, 0, conn_accept_ssl_client, 
+    elem->list_next = conn_build_socket_elem(fd, pop3_create_ssl_session, -1, conn_accept_ssl_client, 
 	(data_handler_t)pop3_process_input, (data_deleter_t)pop3_destroy_session);
     elem = elem->list_next;
     if (NULL == elem) 
         return CONN_FAIL;
     
+    INFO_MSG("Connection init ok");
+
     return CONN_OK;
 }
 
@@ -650,7 +648,6 @@ int conn_wait_loop(){
         for (i = 0; (i < num) && elem != NULL; ){
             fd = elem->list_socket.socket_fd;
             if (FD_ISSET(fd, &rfds)) {
-                printf("fd: %i\n", fd);
                 (elem->list_socket.socket_read_handler)(&(elem->list_socket));
                 i++;
             }
@@ -675,6 +672,9 @@ int conn_close() {
 	elem = elem->list_next;
         conn_delete_socket_elem(fd);
     }
+
+    INFO_MSG("All connections closed");
+
     return CONN_OK;
 }
 
@@ -689,7 +689,6 @@ int conn_close() {
 ssize_t conn_writeback_ssl(int fd, char * buf, ssize_t len) {
     ssl_data_t * data = conn_find_ssl_data(fd);
 
-    printf("writeback (ssl): %s\n", buf);
     return ssl_write(fd, data->ssl_ssl, buf, len);
 }
 
@@ -702,7 +701,6 @@ ssize_t conn_writeback_ssl(int fd, char * buf, ssize_t len) {
  * \return >0 on success.
  */
 ssize_t conn_writeback(int fd, char * buf, ssize_t len) {
-    printf("writeback: %s\n", buf);
     return write(fd, buf, len);
 }
 
@@ -748,7 +746,7 @@ static inline int conn_connect_socket(char * host, char * port) {
     struct addrinfo hints;
     struct addrinfo* res;
 
-    printf("connecting to host: %s:%s\n", host, port);
+    INFO_MSG3("connecting to host: %s:%s", host, port);
 
     if((new = socket(PF_INET, SOCK_STREAM, 0)) == -1){
         ERROR_SYS("socket creation");

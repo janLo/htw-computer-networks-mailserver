@@ -1,5 +1,6 @@
 config.o: config.c \
-	config.h
+	config.h \
+	fail.h
 connection.o: connection.c \
 	fail.h \
 	connection.h \
@@ -17,17 +18,21 @@ forward.o: forward.c \
 	fail.h \
 	smtp.h
 mailbox.o: mailbox.c \
-	mailbox.h
+	mailbox.h \
+	config.h \
+	fail.h
 main.o: main.c \
 	config.h \
 	mailbox.h \
 	connection.h \
-	ssl.h
+	ssl.h \
+	fail.h
 pop3.o: pop3.c \
 	connection.h \
 	config.h \
 	pop3.h \
-	mailbox.h
+	mailbox.h \
+	fail.h
 smtp.o: smtp.c \
 	smtp.h \
 	forward.h \
@@ -36,7 +41,8 @@ smtp.o: smtp.c \
 	fail.h \
 	mailbox.h
 ssl.o: ssl.c \
-	ssl.h
+	ssl.h \
+	fail.h
 config.o: config.h
 connection.o: connection.h
 fail.o: fail.h

@@ -40,6 +40,7 @@
 #include <openssl/err.h>
 
 #include "ssl.h"
+#include "fail.h"
 
 
 /*!
@@ -74,7 +75,7 @@ SSL_CTX * ssl_ctx;
  * \rerurn Nothing.
  */
 int ssl_err_exit(char *string){
-    fprintf(stderr,"%s\n",string);
+    ERROR_CUSTM2("%s",string);
     exit(0);
 }
 
@@ -199,6 +200,7 @@ int ssl_app_init(){
     if(NULL == (ssl_ctx = ssl_initialize_ctx(KEYFILE, PASSWD)))
 	    return -1;
     load_dh_params(ssl_ctx,DHFILE);
+    INFO_MSG("SSL module ok");
     return 0;
 }
 
@@ -208,7 +210,7 @@ int ssl_app_init(){
  */
 void ssl_app_destroy(){
     ssl_destroy_ctx(ssl_ctx);
-    load_dh_params(ssl_ctx, DHFILE);
+    INFO_MSG("SSL Modul closed");
 }
 
 //! Do the SSL handshake
