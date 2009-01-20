@@ -72,7 +72,7 @@ SSL_CTX * ssl_ctx;
 //! A simple error and exit routine
 /*!
  * \param string A error to print.
- * \rerurn Nothing.
+ * \return Nothing.
  */
 int ssl_err_exit(char *string){
     ERROR_CUSTM2("%s",string);
@@ -82,7 +82,7 @@ int ssl_err_exit(char *string){
 //!* Print SSL errors and exit
 /*!
  * \param string A error to print.
- * \rerurn Nothing.
+ * \return Nothing.
  */
 int ssl_berr_exit(char *string)  {
     BIO_printf(bio_err,"%s\n",string);

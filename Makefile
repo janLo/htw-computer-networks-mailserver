@@ -11,7 +11,19 @@ CFLAGS += -D"REVISION_MAIN=\"$(REVISION)\""
 $(BIN): $(OBJS)
 	gcc $(LDFLAGS) -o $(BIN) $(OBJS)
 
+all: $(BIN) doc
+
+doc: usage_doc source_doc
+
+usage_doc:
+	${MAKE} -C usage_doc
+
+source_doc:
+	doxygen doc_config
+
 clean: 
 	rm -f $(BIN) $(OBJS)
 
 include deps
+
+.PHONY: clean usage_doc source_doc doc

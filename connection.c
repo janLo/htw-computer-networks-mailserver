@@ -775,7 +775,7 @@ static inline int conn_connect_socket(char * host, char * port) {
  * This create a new forward socket by connecting to the relayhost and queues 
  * it to the socket list. 
  * \param host The hostname of the relayhost.
- * \param port The port of the connection.
+ * \param data The data for the new connection.
  * \return The new socket to the relayhost on success or CONN_FAIL.
  */
 int conn_new_fwd_socket(char * host,  void * data){
