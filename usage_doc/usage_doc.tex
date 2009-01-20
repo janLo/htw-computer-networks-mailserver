@@ -616,7 +616,8 @@ Alle oben genannten Funktionalitäten sind mit dem Emailclient Mozilla
 Thunderbird in der Version 2.0.0.19 erfolgreich getestet. Zudem wurde die
 korrekte Funktion nach den entsprechenden RFCs per Telnet sowie Openssl-Client
 erfolgreich getestet. Durch die Standardnahe Umsetzung kann die genau
-Funktionsweise der Protokolle in den entsprechenden RFCs nachgelesen werden.
+Funktionsweise der Protokolle in den entsprechenden RFCs nachgelesen und muss
+hier nicht weiter besprochen werden.
 
 Das Programm gibt Status und Fehlermeldungen während der Laufzeit auf der
 Kommandozeile aus. Es sei noch einmal ausdrücklich auf den Beispielcharakter der
@@ -625,7 +626,82 @@ Anwendung hingewiesen. Es wird keinerlei Haftung für Schäden jeglicher Art
 
 
 \section{Optionen}
+\subsection{Allgemein}
+Die Benutzung des vorliegenden Programmes ist sehr einfach. Zum Start wird es
+einfach mit seinen Kommandozeilen-Optionen aufgerufen. Um alle möglichen
+Optionen aufgelistet zu bekommen gibt es die Option \texttt{-h}. Ein Aufruf von
+\texttt{-h} produziert folgende Ausgabe:
+\begin{verbatim}
+Usage: ./mailtool [OPTIONS]
 
+The OPTIONS are:
+	-h                   Print this help and exit.
+	-V                   Print version informations and exit.
+	-p <smtp,pop3,pop3s> Specify the ports for the services.
+	-u <filename>        Specify the filename of the CSV file.
+	-H <hostname>        Specify the hostname of the server.
+	-R <hostname>        Specify the hostname of the relay server.
+	-d <dbfile>          Specify the database file of the mailbox.
+\end{verbatim}
+Dies zeigt bereits alle verfügbaren Kommandozeilen-Optionen mit einer kurzen
+Beschreibung der jeweiligen Option an. Nach der Ausgabe diese Übersicht beendet
+sich das Programm sofort wieder. Es werden keinerlei Module initialisiert. 
+
+Genau so verhält sich das Programm bei der Option \texttt{-V}. Bei dieser Option
+werden Informationen zur Programmversion, zur Revision in den
+Versionsverwaltungssystemen und zum Autor angezeigt. Eine solche Ausgabe kann
+wie folgt aussehen:
+\begin{verbatim}
+Version information for ./mailtool:
+Autor:               Jan Losinski (g08s29) <losinski@wh2.tu-dresden.de>
+Version:             0.1 ALPHA
+Revision (studsvn):  1
+Revision (losinski): 186
+\end{verbatim}
+Dies sagt aus, das es sich um die Version 0.1 ALPHA des Programmes handelt,
+welche im studsvn, dem Versionsverwaltungssystemen zur Abgabe die Revision eins 
+und in meinem Versionsverwaltungssystemen die Revision 186 darstellt.
+
+\subsection{Portangabe}
+Mit der Option \texttt{-p} können die Ports angegeben werden, an denen der
+Server seine Dienste anbietet. Das Atgument nach \texttt{-p} muss ein Tupel aus
+drei unterschiedlichen Zahlen zwischen 1 und 65535 sein, welche durch Komma
+getrennt sind. Die erste Zahl stellt dabei den Port für das SMTP Protokoll dat,
+die zweite den Port für das POP3 Protokoll und die dritte den Port für die SSL
+verschlüsselte Variante des POP3 Protokolles (POP3S). 
+
+Zu beachten ist, das auf vielen unixartigen Systemen die Ports 1-1024 root (UID 
+0) vorbehalten sind und nicht von Nutzern mit eingeschränkten Rechten benutzt 
+werden dürfen. Des weiteren ist zu beachten, das auf einigen Ports bereits 
+Dienste gebunden sein könnten. Eine Liste der Standardzuordnung zwischen 
+Diensten und Netzwerkports ist auf den meisten Systemen unter
+\texttt{/etc/services} zu finden. Eine Übersicht über die momentan belegten
+Netzwerkports des Systems bekommt man mit dem Tool \texttt{netstat} angezeigt.
+
+\subsection{Dateien}
+Mit der Option \texttt{-u} wird dem Programm eine Datei mit Nutzer-Passwort
+Kombinationen übergeben. Diese werden benötigt um Nutzer zu authentifizieren und
+um lokale Emailadressen zu generieren. Das Format der Datei ist wie in der
+Aufgabe (siehe \ref{sec:aufgabe-wortlaut}) beschrieben. 
+
+Pro Zeile ist genau eine Nutzer-Passwort Kombination definiert. Zuerst kommt der
+Nutzername. Anschließend folgt ein Tabulatorzeichen und hinterher das Passwort:
+\texttt{<Nutzername>\textbackslash t<Passwort>\textbackslash n}. Twischen den
+Werten dürfen keine weiteren Leerzeichen existieren.
+
+Ohne angabe dieser Datei können keine Emails ausgeliefert oder abgerufen werden.
+Dies kommt daher, der Server in dem Fall weder lokale Nutzer besitzt an die er
+Emails ausliefern könnte, noch Nutzerdaten hat um POP3 oder ESMTP Sitzungen zu
+authentifizieren.
+
+Die Option \texttt{-d} Legt fest, wo die Datenbank-Datei der Anwendung liegt.
+Dies ist eine SQLITE Datei, welche mit der Anwendung mitgeliefert wird. In
+dieser Datei werden alle lokal ausgelieferten Emails bis zu ihrer Löschung durch
+einen POP3 Client aufbewahrt. Ohne die Angabe dieser Datei wird
+\texttt{mailboxes.sqlite} als Dateiname für die Datenbankdatei gewählt.
+
+
+\subsection{Hostnamen}
 
 
 

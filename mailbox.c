@@ -39,13 +39,13 @@
 #include <sqlite3.h>
 
 #include "mailbox.h"
+#include "config.h"
 
 /*!
  * \defgroup mbox Mailbox Module
  * @{
  */
 
-#define DB_FILE "./mailboxes.sqlite"
 
 #define STATEMENT_PUSH   "INSERT INTO mail (user,data,size,date) VALUES (?,?,?,?)"
 #define STATEMENT_FETCH  "SELECT data FROM mail WHERE id = ?"
@@ -131,7 +131,7 @@ const char * mbox_get_error_msg(){
 int mbox_init_app(){
 
     /* Cnnecting to DB File */
-    if( SQLITE_OK != sqlite3_open_v2(DB_FILE, &database, SQLITE_OPEN_READWRITE, NULL) ) {
+    if( SQLITE_OK != sqlite3_open_v2(config_get_dbfile(), &database, SQLITE_OPEN_READWRITE, NULL) ) {
         return MAILBOX_ERROR;
     }
 
